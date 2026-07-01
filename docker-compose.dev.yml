@@ -1,0 +1,23 @@
+# Local development: Postgres only. Apps + worker run on the host via `pnpm dev`.
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: realtr-dev-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: realtr
+      POSTGRES_PASSWORD: realtr
+      POSTGRES_DB: realtr
+    ports:
+      # Host 5433 -> container 5432 (5432 is commonly taken by other local DBs).
+      - "5433:5432"
+    volumes:
+      - realtr_dev_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U realtr -d realtr"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  realtr_dev_pgdata:

@@ -1,0 +1,22 @@
+{
+  "name": "@realtr/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./sources": "./src/integrations/sources/index.ts",
+    "./crm": "./src/integrations/crm/index.ts"
+  },
+  "scripts": {
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@realtr/db": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:"
+  }
+}

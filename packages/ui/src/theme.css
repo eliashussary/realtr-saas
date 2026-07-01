@@ -1,0 +1,31 @@
+/*
+ * Shared Tailwind v4 theme layer. Apps compose it:
+ *   @import "tailwindcss";
+ *   @import "@realtr/ui/theme.css";
+ *   @source "../../../packages/ui/src";
+ *   @source "../../../packages/site/src";
+ *
+ * `@theme inline` maps each Tailwind token to a runtime `--t-*` custom property with a
+ * built-in fallback, so per-tenant branding is just a matter of setting `--t-*` on a
+ * wrapping element (see themeToCssVars) — no rebuild, no per-tenant CSS.
+ */
+@theme inline {
+  --color-brand: var(--t-brand, oklch(0.55 0.2 255));
+  --color-accent: var(--t-accent, oklch(0.75 0.17 70));
+  --color-background: var(--t-bg, oklch(1 0 0));
+  --color-foreground: var(--t-fg, oklch(0.2 0.02 260));
+  --color-muted: var(--t-muted, oklch(0.55 0.02 260));
+
+  --font-heading: var(--t-font-heading, ui-sans-serif, system-ui, sans-serif);
+  --font-body: var(--t-font-body, ui-sans-serif, system-ui, sans-serif);
+
+  --radius-base: var(--t-radius, 0.625rem);
+}
+
+@layer base {
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-body);
+  }
+}

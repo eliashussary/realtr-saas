@@ -1,0 +1,6 @@
+@import "tailwindcss";
+@import "@realtr/ui/theme.css";
+
+/* Include the design system + block/template sources so their classes compile. */
+@source "../../../packages/ui/src";
+@source "../../../packages/site/src";

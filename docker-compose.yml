@@ -1,0 +1,114 @@
+# Production-ish stack: Postgres + Caddy edge + 3 apps + worker on a single host.
+# Secrets come from the environment (or a sibling .env). The internal DATABASE_URL points
+# at the `postgres` service, not the host.
+x-db-url: &db_url "postgres://realtr:realtr@postgres:5432/realtr"
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: realtr
+      POSTGRES_PASSWORD: realtr
+      POSTGRES_DB: realtr
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U realtr -d realtr"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # One-shot: apply migrations before apps start.
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile.node
+    command: ["pnpm", "db:migrate"]
+    environment:
+      DATABASE_URL: *db_url
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP: app
+    restart: unless-stopped
+    environment:
+      PORT: 3001
+      DATABASE_URL: *db_url
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-https://app.realtr.app}
+      INTEGRATION_ENCRYPTION_KEY: ${INTEGRATION_ENCRYPTION_KEY:?set INTEGRATION_ENCRYPTION_KEY}
+      RENDERER_BASE_HOST: ${RENDERER_BASE_HOST:-sites.realtr.app}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  renderer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP: renderer
+    restart: unless-stopped
+    environment:
+      PORT: 3000
+      DATABASE_URL: *db_url
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  marketing:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP: marketing
+    restart: unless-stopped
+    environment:
+      PORT: 3002
+      VITE_APP_URL: ${BETTER_AUTH_URL:-https://app.realtr.app}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.node
+    command: ["pnpm", "--filter", "@realtr/worker", "start"]
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: *db_url
+      INTEGRATION_ENCRYPTION_KEY: ${INTEGRATION_ENCRYPTION_KEY:?set INTEGRATION_ENCRYPTION_KEY}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL:-admin@realtr.app}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+      - renderer
+      - marketing
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

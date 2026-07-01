@@ -1,0 +1,35 @@
+{
+	# On-demand TLS: before issuing a cert for an unknown host, Caddy asks the renderer
+	# whether it's a valid tenant domain. 200 => issue; anything else => deny. This is what
+	# makes zero-touch custom vanity domains safe (random domains pointed at our IP can't
+	# trigger issuance).
+	on_demand_tls {
+		ask http://renderer:3000/internal/tls-check
+	}
+	email {$ACME_EMAIL}
+}
+
+# Marketing brand site (apex + www).
+realtr.app, www.realtr.app {
+	reverse_proxy marketing:3002
+}
+
+# App — the realtor SaaS control center.
+app.realtr.app {
+	reverse_proxy app:3001
+}
+
+# Renderer base host that tenant custom domains CNAME to.
+sites.realtr.app {
+	reverse_proxy renderer:3000
+}
+
+# Catch-all for tenant vanity domains: any other https host gets an on-demand cert
+# (gated by the ask endpoint above) and is served by the renderer, which resolves the
+# tenant by Host.
+https:// {
+	tls {
+		on_demand
+	}
+	reverse_proxy renderer:3000
+}

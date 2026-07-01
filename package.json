@@ -1,0 +1,29 @@
+{
+  "name": "realtr-saas",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.6.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter \"./apps/*\" dev",
+    "build": "pnpm -r build",
+    "check": "pnpm -r --parallel check && biome check .",
+    "format": "biome format --write .",
+    "lint": "biome check .",
+    "db:generate": "pnpm --filter @realtr/db db:generate",
+    "db:migrate": "pnpm --filter @realtr/db db:migrate",
+    "db:studio": "pnpm --filter @realtr/db db:studio",
+    "db:seed": "pnpm --filter @realtr/db db:seed",
+    "db:push": "pnpm --filter @realtr/db db:push",
+    "auth:generate": "pnpm --filter @realtr/app auth:generate",
+    "docker:dev": "docker compose -f docker-compose.dev.yml up -d",
+    "docker:dev:down": "docker compose -f docker-compose.dev.yml down"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "typescript": "catalog:"
+  }
+}

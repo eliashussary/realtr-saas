@@ -1,0 +1,24 @@
+# deps
+node_modules/
+.pnpm-store/
+
+# builds / framework output
+dist/
+.output/
+.nitro/
+.tanstack/
+.vinxi/
+**/routeTree.gen.ts
+
+# env
+.env
+.env.*
+!.env.example
+
+# caddy runtime data
+caddy_data/
+caddy_config/
+
+# misc
+.DS_Store
+*.log

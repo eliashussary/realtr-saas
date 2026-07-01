@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "moduleDetection": "force",
+    "jsx": "react-jsx",
+    "allowJs": true,
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noEmit": true,
+    "declaration": false,
+    "paths": {
+      "@realtr/db": ["./packages/db/src/index.ts"],
+      "@realtr/db/*": ["./packages/db/src/*"],
+      "@realtr/ui": ["./packages/ui/src/index.ts"],
+      "@realtr/ui/*": ["./packages/ui/src/*"],
+      "@realtr/site": ["./packages/site/src/index.ts"],
+      "@realtr/site/*": ["./packages/site/src/*"],
+      "@realtr/core": ["./packages/core/src/index.ts"],
+      "@realtr/core/*": ["./packages/core/src/*"]
+    }
+  }
+}
