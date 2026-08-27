@@ -11,10 +11,26 @@
  */
 @theme inline {
   --color-brand: var(--t-brand, oklch(0.55 0.2 255));
-  --color-accent: var(--t-accent, oklch(0.75 0.17 70));
-  --color-background: var(--t-bg, oklch(1 0 0));
-  --color-foreground: var(--t-fg, oklch(0.2 0.02 260));
-  --color-muted: var(--t-muted, oklch(0.55 0.02 260));
+  --color-accent: var(--app-accent, var(--t-accent, oklch(0.75 0.17 70)));
+  --color-background: var(--app-surface, var(--t-bg, oklch(1 0 0)));
+  --color-foreground: var(--app-foreground, var(--t-fg, oklch(0.2 0.02 260)));
+  --color-muted: var(--app-secondary, var(--t-muted, oklch(0.55 0.02 260)));
+
+  --color-primary: var(--app-primary, var(--t-brand, oklch(0.55 0.2 255)));
+  --color-primary-foreground: var(--app-primary-foreground, oklch(0.99 0 0));
+  --color-secondary: var(--app-secondary, oklch(0.95 0.01 255));
+  --color-secondary-foreground: var(--app-secondary-foreground, oklch(0.25 0.03 255));
+  --color-accent-foreground: var(--app-accent-foreground, oklch(0.25 0.03 255));
+  --color-muted-foreground: var(--app-muted-foreground, var(--t-muted, oklch(0.5 0.02 260)));
+  --color-border: var(--app-border, oklch(0.89 0.01 255));
+  --color-input: var(--app-input, oklch(0.86 0.01 255));
+  --color-ring: var(--app-ring, var(--t-brand, oklch(0.58 0.19 255)));
+  --color-popover: var(--app-popover, var(--t-bg, oklch(1 0 0)));
+  --color-popover-foreground: var(--app-popover-foreground, var(--t-fg, oklch(0.2 0.02 260)));
+  --color-destructive: var(--app-destructive, oklch(0.58 0.22 27));
+  --color-warning: var(--app-warning, oklch(0.72 0.16 75));
+  --color-success: var(--app-success, oklch(0.58 0.14 155));
+  --color-info: var(--app-info, oklch(0.61 0.14 245));
 
   --font-heading: var(--t-font-heading, ui-sans-serif, system-ui, sans-serif);
   --font-body: var(--t-font-body, ui-sans-serif, system-ui, sans-serif);
@@ -22,10 +38,59 @@
   --radius-base: var(--t-radius, 0.625rem);
 }
 
+.realtr-app {
+  --app-canvas: oklch(0.975 0.006 255);
+  --app-surface: oklch(1 0 0);
+  --app-elevated: oklch(0.995 0.003 255);
+  --app-foreground: oklch(0.2 0.025 255);
+  --app-primary: oklch(0.52 0.18 255);
+  --app-primary-foreground: oklch(0.99 0 0);
+  --app-secondary: oklch(0.94 0.015 255);
+  --app-secondary-foreground: oklch(0.25 0.035 255);
+  --app-accent: oklch(0.92 0.04 245);
+  --app-accent-foreground: oklch(0.25 0.035 255);
+  --app-muted-foreground: oklch(0.48 0.025 255);
+  --app-border: oklch(0.88 0.012 255);
+  --app-input: oklch(0.84 0.015 255);
+  --app-ring: oklch(0.58 0.18 255);
+  --app-popover: oklch(1 0 0);
+  --app-popover-foreground: oklch(0.2 0.025 255);
+}
+
+.realtr-app.dark {
+  --app-canvas: oklch(0.17 0.018 255);
+  --app-surface: oklch(0.21 0.02 255);
+  --app-elevated: oklch(0.24 0.022 255);
+  --app-foreground: oklch(0.94 0.008 255);
+  --app-primary: oklch(0.7 0.15 250);
+  --app-primary-foreground: oklch(0.16 0.025 255);
+  --app-secondary: oklch(0.28 0.025 255);
+  --app-secondary-foreground: oklch(0.94 0.008 255);
+  --app-accent: oklch(0.31 0.04 250);
+  --app-accent-foreground: oklch(0.95 0.008 255);
+  --app-muted-foreground: oklch(0.7 0.02 255);
+  --app-border: oklch(0.34 0.025 255);
+  --app-input: oklch(0.39 0.025 255);
+  --app-ring: oklch(0.7 0.15 250);
+  --app-popover: oklch(0.22 0.02 255);
+  --app-popover-foreground: oklch(0.94 0.008 255);
+}
+
 @layer base {
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-body);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .realtr-app *,
+  .realtr-app *::before,
+  .realtr-app *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
