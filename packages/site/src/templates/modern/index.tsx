@@ -52,6 +52,7 @@ const defaultPages: Pages = {
 
 export const modern: TemplateModule = {
   meta: { id: "modern", name: "Modern" },
+  schemaVersion: 1,
   Root: ModernRoot,
   defaultTheme,
   defaultPages,

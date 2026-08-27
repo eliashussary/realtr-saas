@@ -19,6 +19,8 @@ export interface TemplateMeta {
  */
 export interface TemplateModule {
   meta: TemplateMeta
+  /** Realtr's persisted template/content compatibility version. */
+  schemaVersion: number
   Root: ComponentType<{ children: ReactNode; title?: string }>
   defaultTheme: ThemeTokens
   defaultPages: Pages

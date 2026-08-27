@@ -36,11 +36,12 @@ evidence; it does not declare its own packet approved.
 | 2 | [M0-A1 Authorization guard](M0-A1-authorization-guard.md) | done | M0-C1 | Shared authorization contract and cross-tenant tests established |
 | 3 | [M0-A2 Secure domain mutations](M0-A2-secure-domain-mutations.md) | review | M0-A1 | Implementation verified; manual flow evidence remains |
 | 4 | [M0-E1 Listing identity migration](M0-E1-listing-identity-migration.md) | done | M0-C1 | Tenant-scoped constraint and regression tests established |
-| 5 | [M0-F1 Worker lifecycle](M0-F1-worker-lifecycle.md) | review | M0-C1 | Implementation and process evidence ready for review |
+| 5 | [M0-F1 Worker lifecycle](M0-F1-worker-lifecycle.md) | done | M0-C1 | Lifecycle, readiness, shutdown, and zero-startup-job evidence approved |
 | 6 | [M0-G1 UI system spike](M0-G1-ui-system-spike.md) | review | ADR 0001 | Workbench, accessibility, and visual evidence await product approval |
 | 7 | [M3-D1 DDF discovery brief](M3-D1-ddf-discovery-brief.md) | done | — | Production DDF client/model blocked on CREA answers |
-| 8 | [M2-D1 Draft/publish ADR](M2-D1-draft-publish-adr.md) | review | — | Proposed ADR is ready for product-owner decision |
-| 9 | [M0-D1 CI baseline](M0-D1-ci-baseline.md) | review | C1 and stable root scripts | Workflow ready for first hosted run |
+| 8 | [M2-D1 Draft/publish ADR](M2-D1-draft-publish-adr.md) | done | — | ADR 0004 and its MVP defaults were accepted |
+| 9 | [M0-D1 CI baseline](M0-D1-ci-baseline.md) | done | C1 and stable root scripts | Hosted quality and PostgreSQL jobs pass on main |
+| 10 | [M2-A1 Site document contract](M2-A1-site-document-contract.md) | done | ADR 0004 | V1 contract, legacy conversion, compatibility tests, and repository gates pass |
 
 Dependencies take precedence over the numeric order. M0-E1 and M0-F1 may start after M0-C1 while
 M0-A1/A2 proceeds. M0-G1, M3-D1, and M2-D1 are intentionally parallel tracks.

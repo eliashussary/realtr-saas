@@ -1,6 +1,6 @@
 # ADR 0004: Versioned draft and published site documents
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-08-27
 - Decision owners: product owner and M2 implementers
 
@@ -29,11 +29,11 @@ Relevant official references:
 - [Puck `Render`](https://puckeditor.com/docs/api-reference/components/render)
 - [Puck data migration](https://puckeditor.com/docs/integrating-puck/data-migration)
 
-M0-A1 is active but not merged at the time of this decision. This ADR assumes its server-only guard
-will derive the authenticated user and allowed organization membership from the session and offer
-an organization-constrained site lookup. No draft, preview-token, publish, or rollback API may
-trust an organization, member, author, or role supplied by the browser. The eventual M2 APIs must
-consume M0-A1's accepted contract rather than introduce a second authorization system.
+M0-A1's accepted server-only guard derives the authenticated user and allowed organization
+membership from the session and offers an organization-constrained site lookup. No draft,
+preview-token, publish, or rollback API may trust an organization, member, author, or role supplied
+by the browser. M2 APIs must consume that contract rather than introduce a second authorization
+system.
 
 ## Decision
 
@@ -507,24 +507,22 @@ migration-authored initial publication solely to preserve current public behavio
 Each persistence/API packet includes an organization-A-cannot-access-organization-B case. A4/A5
 include renderer requests during publication and injected failures before and after commit.
 
-## Product-owner decisions still requiring approval
+## Accepted MVP product defaults
 
-The architecture does not depend on exact values, but implementation/UX does:
+Accepted on 2026-08-27. These defaults may be revisited through a later decision:
 
-1. Approve first-site semantics: new sites remain private until explicit first publish; only legacy
+1. New sites remain private until explicit first publish; only legacy
    sites receive a migration-authored publication.
-2. Approve who may publish/rollback and issue shareable previews (proposal: owner/admin publish and
-   rollback; editors may autosave and issue previews).
-3. Approve preview lifetime and sharing UX (proposal: 30 minutes, revocable, one immutable snapshot;
-   decide whether a signed-in-only preview option is also required).
-4. Approve retention (proposal: published forever for MVP, preview snapshots 7 days, optional draft
-   checkpoints 30 days/100 per site) and any contractual/legal deletion requirements.
-5. Decide whether MVP needs draft checkpoint history in addition to publication history. The base
-   model does not create a revision per autosave.
-6. Approve conflict recovery scope: reload/download/manual reapply for MVP versus funded structural
-   merge or page-level locks.
-7. Approve the live-update freshness target. A 30-second pointer-cache ceiling is operationally
-   safe but may not meet a product promise of instant publication; an outbox/push design should be
-   mandatory if instant visibility is promised.
-8. Approve handling of unsupported blocks during template switches: block the switch by default,
-   or allow an explicit lossy conversion with retained recovery data.
+2. Owners/admins may publish and rollback; editors may autosave and issue previews.
+3. Preview links live for 30 minutes, are revocable, and resolve one immutable snapshot. A separate
+   signed-in-only preview is not required for MVP.
+4. Published revisions are retained for the life of the site for MVP. Preview snapshots are retained
+   for 7 days. If draft checkpoints ship, retain 30 days or the latest 100 per site, whichever is
+   smaller, subject to later contractual deletion requirements.
+5. MVP does not require draft checkpoint history beyond publication history.
+6. Conflict recovery is reload, download, and manual reapply; structural merge and page locks are
+   out of scope.
+7. Published content may take up to 30 seconds to become visible through pointer caching; do not
+   promise instant publication until an outbox/push design exists.
+8. Unsupported blocks prevent a template switch by default. Lossy conversion is out of scope until
+   retained recovery data and explicit confirmation are designed.

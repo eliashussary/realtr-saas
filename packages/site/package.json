@@ -6,14 +6,17 @@
   "exports": {
     ".": "./src/index.ts",
     "./blocks": "./src/blocks/index.ts",
+    "./document": "./src/site-document.ts",
     "./templates": "./src/templates/index.ts"
   },
   "scripts": {
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "test:unit": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
     "@measured/puck": "catalog:",
-    "@realtr/ui": "workspace:*"
+    "@realtr/ui": "workspace:*",
+    "zod": "catalog:"
   },
   "peerDependencies": {
     "react": "^19.0.0",
@@ -24,6 +27,7 @@
     "@types/react-dom": "^19.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }
