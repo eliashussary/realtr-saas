@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.6.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Type, lint, format, and generated routes
+        run: |
+          pnpm check
+          git diff --exit-code -- apps/app/src/routeTree.gen.ts apps/marketing/src/routeTree.gen.ts apps/renderer/src/routeTree.gen.ts
+      - name: Unit tests
+        run: pnpm test:unit
+      - name: Production builds
+        run: pnpm build
+      - name: Drizzle migration drift
+        run: |
+          pnpm db:generate
+          git diff --exit-code -- packages/db/drizzle
+
+  integration:
+    name: PostgreSQL integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.6.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Isolated PostgreSQL integration tests
+        run: pnpm test:integration

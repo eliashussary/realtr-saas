@@ -82,6 +82,20 @@ Integration tests require Docker Compose and an explicit `TEST_DATABASE_URL` who
 starts with `test_` or ends with `_test`. The default in `.env.example` targets the isolated
 `docker-compose.test.yml` service; the test harness never falls back to `DATABASE_URL`.
 
+## Continuous integration
+
+GitHub Actions runs two required checks on pull requests and `main`:
+
+- **Quality**: frozen install, `pnpm check`, generated-route drift, unit tests, `pnpm build`, and
+  Drizzle migration/snapshot drift.
+- **PostgreSQL integration**: `pnpm test:integration` against the disposable Compose database.
+
+The local equivalents are `pnpm check`, `pnpm test`, and `pnpm build`. Migration drift can be
+reproduced with `pnpm db:generate` followed by
+`git diff --exit-code -- packages/db/drizzle`. CI uses only repository test values and does not
+receive production authentication, integration, or database secrets. Each job has a timeout, and a
+new run for the same branch cancels its superseded predecessor.
+
 ## Production
 
 Single-host `docker-compose.yml` runs Postgres + Caddy (edge, on-demand TLS) + the three apps +
