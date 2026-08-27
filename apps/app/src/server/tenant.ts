@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start"
+import { assertDomainCanBeRegistered, parseDomainInput } from "./domain-input"
 
 export interface DashboardSite {
   id: string
@@ -94,25 +95,29 @@ export const getDashboard = createServerFn({ method: "GET" }).handler(
 
 /** Add a vanity domain to a site (status=pending). */
 export const addDomain = createServerFn({ method: "POST" })
-  .validator((data: { siteId: string; hostname: string }) => data)
+  .validator(parseDomainInput)
   .handler(async ({ data }) => {
     const { randomUUID } = await import("node:crypto")
     const { getRequest } = await import("@tanstack/react-start/server")
     const { auth } = await import("../lib/auth")
-    const { db, eq, site, domain } = await import("@realtr/db")
+    const { db, domain } = await import("@realtr/db")
+    const { findAuthorizedSite, resolveOrganizationAuthorization } = await import("./authorization")
 
     const session = await auth.api.getSession({ headers: getRequest().headers })
-    if (!session) throw new Error("Not authenticated")
+    const authorization = await resolveOrganizationAuthorization(session)
+    if (!authorization.ok) throw new Error("Not authorized")
 
-    const hostname = data.hostname.trim().toLowerCase()
-    if (!/^[a-z0-9.-]+\.[a-z]{2,}$/.test(hostname)) {
-      throw new Error("Enter a valid domain, e.g. www.yourbrand.com")
-    }
-    // Ensure the site exists (authorization tightening comes later).
-    const target = (await db.select().from(site).where(eq(site.id, data.siteId)).limit(1))[0]
-    if (!target) throw new Error("Site not found")
+    const hostname = data.hostname
+    assertDomainCanBeRegistered(
+      hostname,
+      process.env.RENDERER_BASE_HOST ?? "sites.realtr.app",
+      process.env.NODE_ENV === "production",
+    )
 
-    await db
+    const target = await findAuthorizedSite(authorization, data.siteId)
+    if ("ok" in target && !target.ok) throw new Error("Site not found")
+
+    const inserted = await db
       .insert(domain)
       .values({
         siteId: data.siteId,
@@ -121,6 +126,9 @@ export const addDomain = createServerFn({ method: "POST" })
         verificationToken: randomUUID(),
       })
       .onConflictDoNothing()
+      .returning({ hostname: domain.hostname })
+
+    if (!inserted[0]) throw new Error("Domain unavailable")
 
     return { ok: true, hostname }
   })

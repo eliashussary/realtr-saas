@@ -1,4 +1,4 @@
-import { domain, db, eq, organization, site } from "@realtr/db"
+import { domain, and, db, eq, inArray, organization, site } from "@realtr/db"
 import { normalizeHost } from "./host"
 
 export { normalizeHost } from "./host"
@@ -24,7 +24,8 @@ export async function resolveSiteByHost(host: string): Promise<ResolvedSite | nu
     .where(eq(domain.hostname, hostname))
     .limit(1)
 
-  return rows[0] ?? null
+  const resolved = rows[0]
+  return resolved && ["verified", "active"].includes(resolved.domain.status) ? resolved : null
 }
 
 /** True if a domain may receive a TLS cert (backs the Caddy on-demand `ask` endpoint). */
@@ -33,7 +34,7 @@ export async function isServableDomain(host: string): Promise<boolean> {
   const rows = await db
     .select({ status: domain.status })
     .from(domain)
-    .where(eq(domain.hostname, hostname))
+    .where(and(eq(domain.hostname, hostname), inArray(domain.status, ["verified", "active"])))
     .limit(1)
   const status = rows[0]?.status
   return status === "verified" || status === "active"
