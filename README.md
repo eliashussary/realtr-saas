@@ -80,7 +80,8 @@ Dev URLs:
 
 Integration tests require Docker Compose and an explicit `TEST_DATABASE_URL` whose database name
 starts with `test_` or ends with `_test`. The default in `.env.example` targets the isolated
-`docker-compose.test.yml` service; the test harness never falls back to `DATABASE_URL`.
+`docker-compose.test.yml` service; the test harness never falls back to `DATABASE_URL`. It also
+creates and removes a sibling `_upgrade_test` database to exercise populated migration upgrades.
 
 ## Continuous integration
 

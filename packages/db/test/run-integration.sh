@@ -11,4 +11,5 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 docker compose -f "$compose_file" up --detach --wait
+pnpm exec tsx test/upgrade-path.ts
 pnpm exec vitest run --config vitest.integration.config.ts

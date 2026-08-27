@@ -15,6 +15,20 @@
       "when": 1787853917135,
       "tag": "0001_fast_warpath",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787874542230,
+      "tag": "0002_mute_justin_hammer",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1787874761234,
+      "tag": "0003_workable_firestar",
+      "breakpoints": true
     }
   ]
 }

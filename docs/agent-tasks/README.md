@@ -42,6 +42,7 @@ evidence; it does not declare its own packet approved.
 | 8 | [M2-D1 Draft/publish ADR](M2-D1-draft-publish-adr.md) | done | — | ADR 0004 and its MVP defaults were accepted |
 | 9 | [M0-D1 CI baseline](M0-D1-ci-baseline.md) | done | C1 and stable root scripts | Hosted quality and PostgreSQL jobs pass on main |
 | 10 | [M2-A1 Site document contract](M2-A1-site-document-contract.md) | done | ADR 0004 | V1 contract, legacy conversion, compatibility tests, and repository gates pass |
+| 11 | [M2-A2 Site document persistence](M2-A2-site-document-persistence.md) | done | M2-A1 | Fresh/upgrade migrations, idempotent backfill, and tenant constraints pass |
 
 Dependencies take precedence over the numeric order. M0-E1 and M0-F1 may start after M0-C1 while
 M0-A1/A2 proceeds. M0-G1, M3-D1, and M2-D1 are intentionally parallel tracks.
