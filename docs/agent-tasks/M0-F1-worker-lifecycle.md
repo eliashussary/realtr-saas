@@ -1,6 +1,6 @@
 # M0-F1 — Worker lifecycle and validated jobs
 
-- Status: blocked on M0-C1
+- Status: ready
 - Milestone: M0 — Safety and delivery foundation
 
 ## Outcome
@@ -87,4 +87,3 @@ terminate it, and confirm clean exit. Verify an ordinary restart creates no jobs
 
 Follow the standard handoff. Include lifecycle state behavior, payload schema, retry/failure choices,
 shutdown evidence, and exact M3 follow-ups for integration config and listing persistence.
-

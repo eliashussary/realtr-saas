@@ -1,6 +1,6 @@
 # M0-C1 — Test foundation
 
-- Status: ready
+- Status: done
 - Milestone: M0 — Safety and delivery foundation
 
 ## Outcome
@@ -91,4 +91,3 @@ safety case against a deliberately invalid non-test URL without allowing a conne
 Follow the standard handoff in `docs/agent-tasks/README.md`. Include the test-runner choice and why,
 database isolation strategy, canonical commands later packets should use, observed execution time,
 and any sandbox/CI requirements M0-D1 must account for.
-

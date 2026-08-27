@@ -1,14 +1,12 @@
 import { domain, db, eq, organization, site } from "@realtr/db"
+import { normalizeHost } from "./host"
+
+export { normalizeHost } from "./host"
 
 export interface ResolvedSite {
   site: typeof site.$inferSelect
   domain: typeof domain.$inferSelect
   organization: typeof organization.$inferSelect
-}
-
-/** Strip port and lowercase a Host header value. */
-export function normalizeHost(host: string): string {
-  return (host.split(":")[0] ?? host).trim().toLowerCase()
 }
 
 /**

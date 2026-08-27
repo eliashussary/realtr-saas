@@ -1,6 +1,6 @@
 # M0-A1 — Authorization inventory and organization guard
 
-- Status: blocked on M0-C1
+- Status: ready
 - Milestone: M0 — Safety and delivery foundation
 
 ## Outcome
@@ -95,4 +95,3 @@ cross-tenant resource ID through the lowest-level guarded test/API surface and c
 Follow the standard handoff. Include the entry-point inventory, authorization API signature,
 active-organization behavior, response/error semantics, negative tenant test evidence, and exact
 instructions M0-A2 should follow.
-

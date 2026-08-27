@@ -20,6 +20,7 @@ catalog:
   pg: ^8.13.1
   "@types/pg": ^8.11.10
   pg-boss: ^10.1.5
+  vitest: ^3.2.4
 
   # Auth
   better-auth: ^1.1.0

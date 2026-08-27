@@ -71,9 +71,16 @@ Dev URLs:
 | `pnpm dev` | Run all apps + worker in watch mode |
 | `pnpm build` | Production build (Nitro output per app) |
 | `pnpm check` | Typecheck all packages + Biome lint |
+| `pnpm test` | Unit tests, then isolated PostgreSQL integration tests (one shot) |
+| `pnpm test:unit` | Fast unit tests; no PostgreSQL or production secrets required |
+| `pnpm test:integration` | Start ephemeral test Postgres on :5434, test, and tear it down |
 | `pnpm format` | Biome format |
 | `pnpm db:generate` / `db:migrate` / `db:seed` / `db:studio` | Drizzle |
 | `pnpm docker:dev` / `docker:dev:down` | Local Postgres |
+
+Integration tests require Docker Compose and an explicit `TEST_DATABASE_URL` whose database name
+starts with `test_` or ends with `_test`. The default in `.env.example` targets the isolated
+`docker-compose.test.yml` service; the test harness never falls back to `DATABASE_URL`.
 
 ## Production
 

@@ -1,6 +1,6 @@
 # M3-D1 — REALTOR.ca DDF discovery brief
 
-- Status: ready
+- Status: done
 - Milestone: M3 — Listings and REALTOR.ca DDF
 - Type: research and product/technical discovery; no production code
 
@@ -86,4 +86,3 @@ line by line.
 Follow the standard handoff adapted for research. Include an executive summary, confirmed facts,
 unknowns, sources, product risks, engineering implications, exact access needed next, and a clear
 recommendation on whether canonical-model/client work is ready to start.
-

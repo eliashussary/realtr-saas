@@ -13,6 +13,9 @@
     "check": "pnpm -r --parallel check && biome check .",
     "format": "biome format --write .",
     "lint": "biome check .",
+    "test": "pnpm test:unit && pnpm test:integration",
+    "test:unit": "pnpm --filter \"./apps/*\" --filter \"./packages/*\" --if-present run test:unit",
+    "test:integration": "pnpm --filter @realtr/db run test:integration",
     "db:generate": "pnpm --filter @realtr/db db:generate",
     "db:migrate": "pnpm --filter @realtr/db db:migrate",
     "db:studio": "pnpm --filter @realtr/db db:studio",
@@ -24,6 +27,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

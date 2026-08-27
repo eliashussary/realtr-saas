@@ -32,13 +32,13 @@ evidence; it does not declare its own packet approved.
 
 | Order | Packet | Status | Depends on | Parallelism notes |
 |---:|---|---|---|---|
-| 1 | [M0-C1 Test foundation](M0-C1-test-foundation.md) | ready | — | Owns test dependencies and root test scripts |
-| 2 | [M0-A1 Authorization guard](M0-A1-authorization-guard.md) | blocked | M0-C1 | Owns the shared authorization contract |
+| 1 | [M0-C1 Test foundation](M0-C1-test-foundation.md) | done | — | Canonical commands and two-tenant fixtures established |
+| 2 | [M0-A1 Authorization guard](M0-A1-authorization-guard.md) | ready | M0-C1 | Owns the shared authorization contract |
 | 3 | [M0-A2 Secure domain mutations](M0-A2-secure-domain-mutations.md) | blocked | M0-A1 | May not overlap authenticated tenant server files with A1 |
-| 4 | [M0-E1 Listing identity migration](M0-E1-listing-identity-migration.md) | blocked | M0-C1 | Sole owner of its migration while active |
-| 5 | [M0-F1 Worker lifecycle](M0-F1-worker-lifecycle.md) | blocked | M0-C1 | Avoid DB schema changes unless coordinated |
+| 4 | [M0-E1 Listing identity migration](M0-E1-listing-identity-migration.md) | ready | M0-C1 | Sole owner of its migration while active |
+| 5 | [M0-F1 Worker lifecycle](M0-F1-worker-lifecycle.md) | ready | M0-C1 | Avoid DB schema changes unless coordinated |
 | 6 | [M0-G1 UI system spike](M0-G1-ui-system-spike.md) | ready | ADR 0001 | May run beside backend tasks; owns UI manifests/config |
-| 7 | [M3-D1 DDF discovery brief](M3-D1-ddf-discovery-brief.md) | ready | — | Non-code; may always run in parallel |
+| 7 | [M3-D1 DDF discovery brief](M3-D1-ddf-discovery-brief.md) | done | — | Production DDF client/model blocked on CREA answers |
 | 8 | [M2-D1 Draft/publish ADR](M2-D1-draft-publish-adr.md) | ready | — | Design-only; coordinate assumptions with A1 |
 | 9 | [M0-D1 CI baseline](M0-D1-ci-baseline.md) | blocked | C1 and stable root scripts | Dispatch after test commands settle |
 
@@ -95,4 +95,3 @@ Every agent response must include:
 
 If verification hangs or cannot run, report where it stopped, how long it was allowed to run, and
 what narrower checks passed. Silence is not a pass.
-

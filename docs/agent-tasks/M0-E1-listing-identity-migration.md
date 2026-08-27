@@ -1,6 +1,6 @@
 # M0-E1 — Tenant-safe listing identity migration
 
-- Status: blocked on M0-C1
+- Status: ready
 - Milestone: M0 — Safety and delivery foundation
 
 ## Outcome
@@ -82,4 +82,3 @@ Use disposable databases to verify both fresh migration application and upgrade 
 
 Follow the standard handoff. Include the old/new constraint, data-preservation assessment, fresh and
 upgrade migration evidence, and the conflict target future sync code must use.
-
