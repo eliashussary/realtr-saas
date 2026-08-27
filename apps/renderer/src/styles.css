@@ -1,6 +1,5 @@
 @import "tailwindcss";
 @import "@realtr/ui/theme.css";
 
-/* Include the design system + block/template sources so their classes compile. */
-@source "../../../packages/ui/src";
+/* Public-site utility classes live in the stable block and template package. */
 @source "../../../packages/site/src";

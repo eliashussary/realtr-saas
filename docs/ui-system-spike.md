@@ -53,11 +53,11 @@ complete without new browser errors; Base UI portals render correctly inside the
 isolated stacking context.
 
 The production build reports a route-isolated workbench client chunk of 219.47 kB (71.04 kB gzip).
-Because all three web apps currently scan `packages/ui/src`, their generated CSS grows by roughly
-32 kB raw: app 12.08 → 44.88 kB, renderer 14.24 → 46.33 kB, and marketing 12.02 → 44.24 kB. This is
-acceptable evidence for the spike but not an acceptable silent production cost. Before broad UI
-migration, split control-centre component sources/styles from the neutral tenant-facing UI scan or
-otherwise constrain Tailwind source discovery, then add CSS budgets to CI.
+Tailwind source discovery is scoped by product surface: the control centre scans `packages/ui/src`,
+the renderer scans `packages/site/src`, and marketing scans only its own application sources. This
+keeps the component spike from adding roughly 32 kB of unused raw CSS to each public app. CI checks
+the generated stylesheet against explicit raw-byte budgets (50 kB app, 20 kB renderer, 18 kB
+marketing) after every production build.
 
 ## Review checkpoint
 

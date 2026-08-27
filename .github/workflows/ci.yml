@@ -36,6 +36,8 @@ jobs:
         run: pnpm test:unit
       - name: Production builds
         run: pnpm build
+      - name: CSS bundle budgets
+        run: pnpm check:css-budgets
       - name: Drizzle migration drift
         run: |
           pnpm db:generate

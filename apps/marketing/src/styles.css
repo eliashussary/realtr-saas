@@ -1,5 +1,2 @@
 @import "tailwindcss";
 @import "@realtr/ui/theme.css";
-
-/* Include component sources so their utility classes aren't purged. */
-@source "../../../packages/ui/src";

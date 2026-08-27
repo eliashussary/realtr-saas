@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "pnpm --parallel --filter \"./apps/*\" dev",
     "build": "pnpm -r build",
+    "check:css-budgets": "node scripts/check-css-budgets.mjs",
     "check": "pnpm -r --parallel check && biome check .",
     "format": "biome format --write .",
     "lint": "biome check .",
