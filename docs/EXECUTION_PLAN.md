@@ -300,6 +300,7 @@ workstreams. The first needed decisions are:
 - test runner and PostgreSQL integration-test lifecycle
 - authorization API and active-organization semantics
 - draft/published site document and revision storage
+  ([ADR 0004](decisions/0004-draft-publish-site-documents.md), proposed)
 - canonical listing model after DDF discovery
 - platform subdomain and production host strategy
 - plan/entitlement model and billing lifecycle

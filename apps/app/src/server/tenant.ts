@@ -21,16 +21,21 @@ export const getDashboard = createServerFn({ method: "GET" }).handler(
     const { getRequest } = await import("@tanstack/react-start/server")
     const { auth } = await import("../lib/auth")
     const { db, eq, member, site, domain, organization } = await import("@realtr/db")
+    const { resolveOrganizationAuthorization } = await import("./authorization")
     const { getTemplate } = await import("@realtr/site")
 
     const session = await auth.api.getSession({ headers: getRequest().headers })
     if (!session) return null
 
     const userId = session.user.id
-    let mem = (await db.select().from(member).where(eq(member.userId, userId)).limit(1))[0]
+    let authorization = await resolveOrganizationAuthorization(session)
 
     // Onboarding: new user with no org gets a personal org + a default site (modern template).
-    if (!mem) {
+    if (
+      !authorization.ok &&
+      authorization.code === "forbidden" &&
+      !session.session.activeOrganizationId
+    ) {
       const orgId = randomUUID()
       const emailLocal = session.user.email?.split("@")[0] ?? "My"
       const orgName = `${emailLocal}'s Agency`
@@ -49,12 +54,16 @@ export const getDashboard = createServerFn({ method: "GET" }).handler(
         theme: tpl.defaultTheme as Record<string, unknown>,
         pages: tpl.defaultPages as Record<string, unknown>,
       })
-      mem = (await db.select().from(member).where(eq(member.userId, userId)).limit(1))[0]
+      authorization = await resolveOrganizationAuthorization(session)
     }
 
-    if (!mem) return null
+    if (!authorization.ok) return null
     const org = (
-      await db.select().from(organization).where(eq(organization.id, mem.organizationId)).limit(1)
+      await db
+        .select()
+        .from(organization)
+        .where(eq(organization.id, authorization.organizationId))
+        .limit(1)
     )[0]
     if (!org) return null
 

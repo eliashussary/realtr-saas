@@ -2,7 +2,9 @@ import { jsonb, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-co
 import { member, organization } from "./auth"
 
 // Stub schema for ingested listings. Filled out when the real DDF (and other source)
-// normalizers land. `source` + `sourceListingId` uniquely identify an upstream record.
+// normalizers land. Provider identity is tenant-local: future sync conflict targets and
+// lookups must use `organizationId` + `source` + `sourceListingId`. A later canonical
+// cross-provider identity may reference these source records without weakening this boundary.
 export const listing = pgTable(
   "listing",
   {
@@ -18,5 +20,11 @@ export const listing = pgTable(
     createdAt: timestamp().notNull().defaultNow(),
     updatedAt: timestamp().notNull().defaultNow(),
   },
-  (t) => [unique().on(t.source, t.sourceListingId)],
+  (t) => [
+    unique("listing_organization_source_source_listing_id_unique").on(
+      t.organizationId,
+      t.source,
+      t.sourceListingId,
+    ),
+  ],
 )

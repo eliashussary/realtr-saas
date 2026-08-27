@@ -1,0 +1,2 @@
+ALTER TABLE "listing" DROP CONSTRAINT "listing_source_sourceListingId_unique";--> statement-breakpoint
+ALTER TABLE "listing" ADD CONSTRAINT "listing_organization_source_source_listing_id_unique" UNIQUE("organization_id","source","source_listing_id");

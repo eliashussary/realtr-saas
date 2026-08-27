@@ -9,6 +9,8 @@
 An ADR defines how Realtr stores, edits, previews, publishes, versions, rolls back, and renders site
 documents without allowing incomplete edits or stale writers to damage a live site.
 
+Decision draft: [ADR 0004](../decisions/0004-draft-publish-site-documents.md).
+
 ## Why now
 
 The current `site.pages` JSON stores one implicit state. Editor, multi-page routing, template work,
@@ -91,4 +93,3 @@ during publication. Confirm each has one deterministic source of truth and recov
 Follow the standard handoff adapted for an ADR. Include the recommended model, rejected alternatives,
 schema sketch, sequence summary, migration path, implementation packets, risks, and explicit product
 decisions still needing approval.
-
