@@ -5,6 +5,7 @@ export {
   type ResolvedSite,
 } from "./tenant"
 export { encryptJson, decryptJson } from "./crypto"
+export { resolvePreview } from "./preview"
 export {
   sourceRegistry,
   getSource,

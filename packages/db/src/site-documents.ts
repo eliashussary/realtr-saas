@@ -1,7 +1,7 @@
-import { type InferInsertModel, and, eq, sql } from "drizzle-orm"
+import { type InferInsertModel, and, eq, gt, isNull, sql } from "drizzle-orm"
 import type { NodePgDatabase } from "drizzle-orm/node-postgres"
 import type * as schema from "./schema"
-import { siteAuditEvent, siteDocumentState, siteRevision } from "./schema"
+import { siteAuditEvent, siteDocumentState, sitePreviewGrant, siteRevision } from "./schema"
 
 export type SiteDocumentDatabase = NodePgDatabase<typeof schema>
 export type NewSiteDocumentState = InferInsertModel<typeof siteDocumentState>
@@ -55,6 +55,25 @@ export interface RollbackInput {
 export type RollbackResult =
   | { outcome: "rolled_back"; revisionId: string; publicationNumber: bigint; draftVersion: bigint }
   | { outcome: "not_found" }
+
+export interface CreatePreviewGrantInput {
+  organizationId: string
+  siteId: string
+  document: Record<string, unknown>
+  schemaVersion: number
+  sourceDraftVersion: bigint
+  tokenHash: Buffer
+  expiresAt: Date
+  createdByUserId: string
+}
+
+export interface ResolvedPreview {
+  organizationId: string
+  siteId: string
+  revisionId: string
+  document: Record<string, unknown>
+  schemaVersion: number
+}
 
 /**
  * Tenant-scoped persistence for document state and append-only revisions.
@@ -327,6 +346,104 @@ export function createSiteDocumentRepository(database: SiteDocumentDatabase) {
           draftVersion: nextDraftVersion,
         }
       })
+    },
+
+    /** Snapshot the (validated) draft as an immutable preview revision and mint a scoped grant. */
+    async createPreviewGrant(input: CreatePreviewGrantInput) {
+      return database.transaction(async (tx) => {
+        const [revision] = await tx
+          .insert(siteRevision)
+          .values({
+            organizationId: input.organizationId,
+            siteId: input.siteId,
+            kind: "preview",
+            document: input.document,
+            schemaVersion: input.schemaVersion,
+            sourceDraftVersion: input.sourceDraftVersion,
+            actorType: "user",
+            createdByUserId: input.createdByUserId,
+          })
+          .returning({ id: siteRevision.id })
+        if (!revision) throw new Error("Failed to create preview revision")
+
+        const [grant] = await tx
+          .insert(sitePreviewGrant)
+          .values({
+            organizationId: input.organizationId,
+            siteId: input.siteId,
+            revisionId: revision.id,
+            tokenHash: input.tokenHash,
+            createdByUserId: input.createdByUserId,
+            expiresAt: input.expiresAt,
+          })
+          .returning({ id: sitePreviewGrant.id })
+        if (!grant) throw new Error("Failed to create preview grant")
+
+        return { grantId: grant.id, revisionId: revision.id }
+      })
+    },
+
+    /**
+     * Resolve a raw-token hash to its immutable revision for public preview rendering. Enforces
+     * revocation and expiry, and records access via `lastUsedAt`. Returns undefined for any
+     * missing/expired/revoked token so the caller can respond with a generic 404.
+     */
+    async resolvePreviewGrant(tokenHash: Buffer, now: Date): Promise<ResolvedPreview | undefined> {
+      const [row] = await database
+        .select({
+          grantId: sitePreviewGrant.id,
+          organizationId: sitePreviewGrant.organizationId,
+          siteId: sitePreviewGrant.siteId,
+          revisionId: sitePreviewGrant.revisionId,
+          document: siteRevision.document,
+          schemaVersion: siteRevision.schemaVersion,
+        })
+        .from(sitePreviewGrant)
+        .innerJoin(siteRevision, eq(siteRevision.id, sitePreviewGrant.revisionId))
+        .where(
+          and(
+            eq(sitePreviewGrant.tokenHash, tokenHash),
+            isNull(sitePreviewGrant.revokedAt),
+            gt(sitePreviewGrant.expiresAt, now),
+          ),
+        )
+        .limit(1)
+      if (!row) return undefined
+
+      await database
+        .update(sitePreviewGrant)
+        .set({ lastUsedAt: now })
+        .where(eq(sitePreviewGrant.id, row.grantId))
+
+      return {
+        organizationId: row.organizationId,
+        siteId: row.siteId,
+        revisionId: row.revisionId,
+        document: row.document,
+        schemaVersion: row.schemaVersion,
+      }
+    },
+
+    /** Revoke a grant within its tenant. Returns false if it is absent or already revoked. */
+    async revokePreviewGrant(input: {
+      organizationId: string
+      siteId: string
+      grantId: string
+      now: Date
+    }): Promise<boolean> {
+      const revoked = await database
+        .update(sitePreviewGrant)
+        .set({ revokedAt: input.now })
+        .where(
+          and(
+            eq(sitePreviewGrant.organizationId, input.organizationId),
+            eq(sitePreviewGrant.siteId, input.siteId),
+            eq(sitePreviewGrant.id, input.grantId),
+            isNull(sitePreviewGrant.revokedAt),
+          ),
+        )
+        .returning({ id: sitePreviewGrant.id })
+      return revoked.length > 0
     },
   }
 }
