@@ -2,6 +2,7 @@ import "@measured/puck/puck.css"
 import { Puck, usePuck } from "@measured/puck"
 import type { Data } from "@measured/puck"
 import { getTemplate } from "@realtr/site"
+import { type SiteDocumentV1, resolveNavigation } from "@realtr/site/document"
 import { Button } from "@realtr/ui/components/button"
 import {
   Dialog,
@@ -16,6 +17,7 @@ import { type ThemeTokens, themeToCssVars } from "@realtr/ui/tokens"
 import { Link, createFileRoute, redirect } from "@tanstack/react-router"
 import {
   ChevronLeftIcon,
+  FilesIcon,
   PanelLeftIcon,
   PanelRightIcon,
   Redo2Icon,
@@ -24,18 +26,27 @@ import {
 } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
+import { PagesNavDialog } from "../components/pages-nav-dialog"
 import {
   type BrandingInput,
   brandingFromDocument,
   cleanBrandingInput,
 } from "../components/site-settings"
 import { SiteSettingsDialog } from "../components/site-settings-dialog"
+import {
+  type StructureInput,
+  cleanStructure,
+  isHomePage,
+  structureFromDocument,
+} from "../components/site-structure"
 import { issuePreviewFn, loadSiteDraftFn, publishSiteFn, saveSiteDraftFn } from "../server/site-fns"
 
 interface EditorPage {
   id: string
   slug: string
   title: string
+  status?: "active" | "hidden"
+  seo?: { title?: string; description?: string; noIndex?: boolean }
   puck: Data
 }
 interface EditorSettings {
@@ -47,6 +58,8 @@ interface EditorSettings {
 interface EditorDocument {
   template: { id: string }
   pages: EditorPage[]
+  navigation?: Array<{ id: string; label: string; pageId?: string; href?: string }>
+  redirects?: Array<{ id: string; fromSlug: string; toSlug: string; permanent: boolean }>
   settings?: EditorSettings
   theme?: ThemeTokens
   [key: string]: unknown
@@ -122,9 +135,9 @@ function Editor({
   const dirtyRef = useRef(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const [pageIndex, setPageIndex] = useState(() => {
-    const home = initialDocument.pages.findIndex((page) => page.slug === "")
-    return home >= 0 ? home : 0
+  const [currentPageId, setCurrentPageId] = useState(() => {
+    const home = initialDocument.pages.find((page) => page.slug === "")
+    return home?.id ?? initialDocument.pages[0]?.id ?? ""
   })
   const [saveState, setSaveState] = useState<SaveState>("idle")
   const [version, setVersion] = useState(initialVersion)
@@ -132,6 +145,14 @@ function Editor({
   const [publishOpen, setPublishOpen] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [structureOpen, setStructureOpen] = useState(false)
+  const [structure, setStructure] = useState<StructureInput>(() =>
+    structureFromDocument(initialDocument),
+  )
+  // Bumped when the pages/navigation panel closes so the canvas remounts and reflects structural
+  // edits (menu, page renames/removals) that Puck — being uncontrolled after mount — would not pick
+  // up from a changed data prop alone.
+  const [structureRev, setStructureRev] = useState(0)
   const [branding, setBranding] = useState<BrandingInput>(() =>
     brandingFromDocument(initialDocument),
   )
@@ -188,14 +209,48 @@ function Editor({
 
   const onPuckChange = useCallback(
     (next: Data) => {
-      const pages = docRef.current.pages.map((page, index) =>
-        index === pageIndex ? { ...page, puck: next } : page,
+      const pages = docRef.current.pages.map((page) =>
+        page.id === currentPageId ? { ...page, puck: next } : page,
       )
       docRef.current = { ...docRef.current, pages }
       scheduleSave()
     },
-    [pageIndex, scheduleSave],
+    [currentPageId, scheduleSave],
   )
+
+  // Apply a pages/navigation/redirects edit: reconcile the document's pages (carrying block content
+  // over by id, in the panel's order) and persist cleaned navigation/redirects. If the page being
+  // edited was removed, fall back to the home page so the canvas always has a valid target.
+  const applyStructure = useCallback(
+    (next: StructureInput) => {
+      setStructure(next)
+      const clean = cleanStructure(next, docRef.current.pages)
+      docRef.current = {
+        ...docRef.current,
+        pages: clean.pages,
+        navigation: clean.navigation,
+        redirects: clean.redirects,
+      }
+      if (!clean.pages.some((page) => page.id === currentPageId)) {
+        const fallback = clean.pages.find(isHomePage) ?? clean.pages[0]
+        if (fallback) setCurrentPageId(fallback.id)
+      }
+      scheduleSave()
+    },
+    [currentPageId, scheduleSave],
+  )
+
+  const editPage = useCallback((id: string) => {
+    setCurrentPageId(id)
+    setStructureOpen(false)
+    setStructureRev((rev) => rev + 1)
+  }, [])
+
+  const onStructureOpenChange = useCallback((open: boolean) => {
+    setStructureOpen(open)
+    // Refresh the canvas once the panel closes so it shows the edited menu and pages.
+    if (!open) setStructureRev((rev) => rev + 1)
+  }, [])
 
   const applyBranding = useCallback(
     (next: BrandingInput) => {
@@ -235,9 +290,10 @@ function Editor({
     else toast.error("Publish failed.")
   }, [flush, siteId])
 
-  // Stable identities: Puck is uncontrolled after mount, so a new config/data/overrides object on
-  // every render (e.g. each autosave setState) makes it re-sync and flicker. `key={pageIndex}`
-  // remounts Puck with the right page's seed data when the page changes.
+  // Stable identities: Puck is uncontrolled after mount, so a new config/data object on every render
+  // (e.g. each autosave setState) makes it re-sync and flicker. `key={currentPageId}` remounts Puck
+  // with the right page's seed data when the active page changes, and keeps the same page mounted
+  // across reorders/renames.
   const templateId = docRef.current.template.id
   // The tenant theme is applied to the preview so the canvas matches the published renderer. It
   // tracks `previewTheme`, which the settings panel commits on close (see the state declaration).
@@ -261,29 +317,42 @@ function Editor({
       },
     }
   }, [templateId, themeStyle])
-  const initialData = useMemo<Data>(
-    () => docRef.current.pages[pageIndex]?.puck ?? ({ content: [], root: {} } as Data),
-    [pageIndex],
-  )
+  const initialData = useMemo<Data>(() => {
+    // `structureRev` gates this memo: bumping it on panel close forces a recompute + Puck remount so
+    // the canvas reflects structural edits (menu, renames, removals) it would otherwise miss.
+    void structureRev
+    const puck =
+      docRef.current.pages.find((page) => page.id === currentPageId)?.puck ??
+      ({ content: [], root: {} } as Data)
+    // Mirror the renderer: inject document-level navigation into the page's root props so the
+    // preview header shows the real menu.
+    const nav = resolveNavigation(docRef.current as unknown as SiteDocumentV1)
+    return { ...puck, root: { ...puck.root, props: { ...puck.root?.props, nav } } }
+  }, [currentPageId, structureRev])
   const siteTitle = branding.settings.siteTitle.trim() || docRef.current.pages[0]?.title || "Site"
+  const pageTabs = useMemo(
+    () => structure.pages.map((page) => ({ id: page.id, title: page.title, slug: page.slug })),
+    [structure.pages],
+  )
   const overrides = useMemo(
     () => ({
       header: () => (
         <EditorHeader
           siteTitle={siteTitle}
-          pages={docRef.current.pages}
-          pageIndex={pageIndex}
-          onPageChange={setPageIndex}
+          pages={pageTabs}
+          currentPageId={currentPageId}
+          onPageChange={setCurrentPageId}
           saveState={saveState}
           version={version}
           canPublish={canPublish}
           onPreview={() => void preview()}
           onPublish={() => setPublishOpen(true)}
           onOpenSettings={() => setSettingsOpen(true)}
+          onOpenStructure={() => setStructureOpen(true)}
         />
       ),
     }),
-    [siteTitle, pageIndex, saveState, version, canPublish, preview],
+    [siteTitle, pageTabs, currentPageId, saveState, version, canPublish, preview],
   )
 
   if (!mounted) return <Unavailable message="Loading editor…" />
@@ -300,7 +369,7 @@ function Editor({
       )}
       <div className="realtr-editor min-h-0 flex-1">
         <Puck
-          key={pageIndex}
+          key={`${currentPageId}:${structureRev}`}
           config={config}
           data={initialData}
           onChange={onPuckChange}
@@ -312,6 +381,14 @@ function Editor({
         onOpenChange={onSettingsOpenChange}
         value={branding}
         onChange={applyBranding}
+      />
+      <PagesNavDialog
+        open={structureOpen}
+        onOpenChange={onStructureOpenChange}
+        value={structure}
+        onChange={applyStructure}
+        currentPageId={currentPageId}
+        onEditPage={editPage}
       />
       <Dialog open={publishOpen} onOpenChange={setPublishOpen}>
         <DialogContent>
@@ -339,7 +416,7 @@ function Editor({
 function EditorHeader({
   siteTitle,
   pages,
-  pageIndex,
+  currentPageId,
   onPageChange,
   saveState,
   version,
@@ -347,17 +424,19 @@ function EditorHeader({
   onPreview,
   onPublish,
   onOpenSettings,
+  onOpenStructure,
 }: {
   siteTitle: string
-  pages: EditorPage[]
-  pageIndex: number
-  onPageChange: (index: number) => void
+  pages: Array<{ id: string; title: string; slug: string }>
+  currentPageId: string
+  onPageChange: (id: string) => void
   saveState: SaveState
   version: string
   canPublish: boolean
   onPreview: () => void
   onPublish: () => void
   onOpenSettings: () => void
+  onOpenStructure: () => void
 }) {
   const { history, dispatch, appState } = usePuck()
   const ui = appState.ui
@@ -426,16 +505,25 @@ function EditorHeader({
         {pages.length > 1 && (
           <select
             className="h-8 rounded-md border border-input bg-transparent px-2 text-sm"
-            value={pageIndex}
-            onChange={(event) => onPageChange(Number(event.target.value))}
+            aria-label="Edit page"
+            value={currentPageId}
+            onChange={(event) => onPageChange(event.target.value)}
           >
-            {pages.map((page, index) => (
-              <option key={page.id} value={index}>
+            {pages.map((page) => (
+              <option key={page.id} value={page.id}>
                 {page.title || page.slug || "Home"}
               </option>
             ))}
           </select>
         )}
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Pages and navigation"
+          onClick={onOpenStructure}
+        >
+          <FilesIcon className="size-4" />
+        </Button>
         <span className="flex items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
           <span className="rounded bg-secondary px-1.5 py-0.5 font-mono">v{version}</span>
           {SAVE_LABEL[saveState]}

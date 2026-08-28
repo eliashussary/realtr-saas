@@ -1,4 +1,5 @@
 import type { ThemeTokens } from "@realtr/ui/tokens"
+import type { ReactNode } from "react"
 import { composeConfig } from "../../blocks"
 import type { Pages, TemplateModule } from "../../types"
 import { ModernRoot } from "./root"
@@ -61,7 +62,20 @@ export const modern: TemplateModule = {
       root: {
         fields: { title: { type: "text" } },
         defaultProps: { title: "Realtr" },
-        render: ({ children, title }) => <ModernRoot title={title}>{children}</ModernRoot>,
+        // `nav` is injected at render time by the renderer (document-level navigation), not a Puck
+        // field, so it is read off the props bag rather than declared in `fields`.
+        render: (props) => {
+          const { children, title, nav } = props as {
+            children?: ReactNode
+            title?: string
+            nav?: Array<{ id: string; label: string; href: string }>
+          }
+          return (
+            <ModernRoot title={title} nav={nav}>
+              {children}
+            </ModernRoot>
+          )
+        },
       },
     }),
 }

@@ -430,6 +430,31 @@ export function resolvePageBySlug(document: SiteDocumentV1, rawSlug: string): Pa
   return { kind: "not_found" }
 }
 
+export interface ResolvedNavItem {
+  id: string
+  label: string
+  href: string
+}
+
+/**
+ * Flatten the document's navigation into rendered links: page references resolve to their path
+ * ("/" for the home page), URL items pass through. Items pointing at a missing or non-active page
+ * are dropped so a published menu never links to a 404.
+ */
+export function resolveNavigation(document: SiteDocumentV1): ResolvedNavItem[] {
+  const items: ResolvedNavItem[] = []
+  for (const item of document.navigation) {
+    if (item.pageId) {
+      const page = document.pages.find((candidate) => candidate.id === item.pageId)
+      if (!page || page.status !== "active") continue
+      items.push({ id: item.id, label: item.label, href: page.slug === "" ? "/" : `/${page.slug}` })
+    } else if (item.href) {
+      items.push({ id: item.id, label: item.label, href: item.href })
+    }
+  }
+  return items
+}
+
 export function canonicalizeSiteDocument(document: SiteDocumentV1): SiteDocumentV1 {
   return {
     ...document,

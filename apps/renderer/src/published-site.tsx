@@ -1,6 +1,6 @@
 import { Render } from "@measured/puck"
 import { getTemplate } from "@realtr/site"
-import { type SiteDocumentV1, resolvePageBySlug } from "@realtr/site/document"
+import { type SiteDocumentV1, resolveNavigation, resolvePageBySlug } from "@realtr/site/document"
 import { type ThemeTokens, themeToCssVars } from "@realtr/ui/tokens"
 import { redirect } from "@tanstack/react-router"
 import { createServerFn } from "@tanstack/react-start"
@@ -101,10 +101,19 @@ export function PublishedPage({ data }: { data: PublishedPageData }) {
   const template = getTemplate(document.template.id)
   const config = template.buildConfig()
   const theme = mergeTheme(template.defaultTheme, document.theme)
+  // The site menu is document-level; inject it into the page's root props so the template root
+  // renders it. This is render-time only — it is never persisted back into the document.
+  const renderData = {
+    ...page.puck,
+    root: {
+      ...page.puck.root,
+      props: { ...page.puck.root?.props, nav: resolveNavigation(document) },
+    },
+  }
 
   return (
     <div style={themeToCssVars(theme) as CSSProperties}>
-      <Render config={config} data={page.puck} />
+      <Render config={config} data={renderData} />
     </div>
   )
 }
