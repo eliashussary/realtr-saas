@@ -1,5 +1,11 @@
 # REALTOR.ca DDF discovery brief
 
+> **Update 2026-08-28 ([ADR 0006](../decisions/0006-ddf-credential-model-mvp.md)):** for MVP,
+> tenants self-provision their own DDF Web API key for their own Member Website Feed and connect it
+> to Realtr. The Technology-Provider onboarding and per-destination entitlement model inferred below
+> are **not** MVP blockers (deferred to scale). Read the "blocked / TP model" conclusions here in
+> light of that decision; the display/attribution/refresh/deletion obligations still stand.
+
 Date: 2026-08-27  
 Status: discovery evidence; not legal advice or launch approval  
 Owner: Realtr product/engineering  

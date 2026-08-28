@@ -150,6 +150,12 @@ External discovery gate:
   obligations, rate limits, and launch approval process
 - acquire sanitized response fixtures and document the field mapping; never commit live credentials
 
+MVP credential model — [ADR 0006](decisions/0006-ddf-credential-model-mvp.md), accepted: tenants
+self-provision their own DDF Web API key (OAuth client credentials) for their own Member Website
+Feed and connect it to Realtr. Technology-Provider onboarding and per-destination entitlement are
+**not** MVP blockers and are deferred to scale. This unblocks the sync engine, connect UI, and (with
+a pilot key) the canonical model; the display/attribution/refresh/deletion obligations still apply.
+
 Work packages:
 
 - versioned canonical listing model for identity, status, price, property facts, address/geography,
@@ -302,6 +308,8 @@ workstreams. The first needed decisions are:
 - draft/published site document and revision storage
   ([ADR 0004](decisions/0004-draft-publish-site-documents.md), proposed)
 - canonical listing model after DDF discovery
+- DDF credential model for MVP: tenant-supplied API keys
+  ([ADR 0006](decisions/0006-ddf-credential-model-mvp.md), accepted)
 - platform subdomain and production host strategy
 - plan/entitlement model and billing lifecycle
 - asset upload/storage/image transformation provider
