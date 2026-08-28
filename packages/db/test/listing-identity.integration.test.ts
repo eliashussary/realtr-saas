@@ -34,11 +34,13 @@ describe("tenant-scoped listing identity", () => {
           organizationId: alpha?.ids.organizationId ?? "",
           source: "ddf",
           sourceListingId: "123",
+          sourceKey: "KEY-123",
         },
         {
           organizationId: beta?.ids.organizationId ?? "",
           source: "ddf",
           sourceListingId: "123",
+          sourceKey: "KEY-123",
         },
       ])
       .returning()
@@ -55,6 +57,7 @@ describe("tenant-scoped listing identity", () => {
       organizationId: alpha?.ids.organizationId ?? "",
       source: "ddf",
       sourceListingId: "123",
+      sourceKey: "KEY-123",
     }
 
     await database.db.insert(listing).values(identity)

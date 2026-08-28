@@ -50,6 +50,13 @@
       "when": 1787887800691,
       "tag": "0006_daily_hemingway",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787926619726,
+      "tag": "0007_dear_oracle",
+      "breakpoints": true
     }
   ]
 }
