@@ -2,7 +2,9 @@ import { readdir, stat } from "node:fs/promises"
 import { join } from "node:path"
 
 const budgets = {
-  app: 50_000,
+  // The control centre now hosts the Puck editor, which renders @realtr/site blocks, so the app
+  // bundle includes their utility classes (same set the renderer scans).
+  app: 65_000,
   marketing: 18_000,
   renderer: 20_000,
 }

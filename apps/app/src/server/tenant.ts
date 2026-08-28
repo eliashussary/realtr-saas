@@ -6,6 +6,7 @@ export interface DashboardSite {
   name: string
   templateId: string
   previewUrl: string
+  published: boolean
   domains: { hostname: string; status: string; isPrimary: boolean }[]
 }
 
@@ -20,7 +21,7 @@ export const getDashboard = createServerFn({ method: "GET" }).handler(
   async (): Promise<DashboardData | null> => {
     const { getRequest } = await import("@tanstack/react-start/server")
     const { auth } = await import("../lib/auth")
-    const { db, eq, site, domain, organization } = await import("@realtr/db")
+    const { db, eq, site, domain, organization, siteDocumentState } = await import("@realtr/db")
     const { resolveOrganizationAuthorization } = await import("./authorization")
 
     const session = await auth.api.getSession({ headers: getRequest().headers })
@@ -75,11 +76,17 @@ export const getDashboard = createServerFn({ method: "GET" }).handler(
       const servable = domains.filter((d) => isServableStatus(d.status))
       const chosen = servable.find((d) => d.isPrimary) ?? servable[0]
       const previewUrl = siteUrl(chosen ? chosen.hostname : platformHostname(org.slug ?? org.id))
+      const [state] = await db
+        .select({ pub: siteDocumentState.publishedRevisionId })
+        .from(siteDocumentState)
+        .where(eq(siteDocumentState.siteId, s.id))
+        .limit(1)
       result.push({
         id: s.id,
         name: s.name,
         templateId: s.templateId,
         previewUrl,
+        published: Boolean(state?.pub),
         domains: domains.map((d) => ({
           hostname: d.hostname,
           status: d.status,

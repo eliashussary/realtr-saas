@@ -53,9 +53,20 @@ function SiteCard({ site, baseHost }: { site: DashboardSite; baseHost: string })
             template: {site.templateId}
           </span>
         </div>
-        <a href={site.previewUrl} className="text-sm text-brand" target="_blank" rel="noreferrer">
-          {site.previewUrl} ↗
-        </a>
+        <div className="flex items-center gap-2">
+          <a href={site.previewUrl} className="text-sm text-brand" target="_blank" rel="noreferrer">
+            {site.previewUrl} ↗
+          </a>
+          {site.published ? (
+            <span className="rounded-full bg-success/15 px-2 py-0.5 text-xs font-medium text-success">
+              Live
+            </span>
+          ) : (
+            <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
+              Draft — publish to go live
+            </span>
+          )}
+        </div>
         <Link to="/sites/$siteId/edit" params={{ siteId: site.id }} className="mt-2 inline-block">
           <Button size="sm">Edit site</Button>
         </Link>

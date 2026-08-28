@@ -2,3 +2,6 @@
 @import "@realtr/ui/theme.css";
 
 @source "../../../packages/ui/src";
+/* The Puck editor renders @realtr/site blocks, so their utility classes (colors, spacing,
+   buttons) must be generated in the control-centre bundle too — same set the renderer scans. */
+@source "../../../packages/site/src";
