@@ -42,8 +42,6 @@ async function main() {
       organizationId: ORG_ID,
       name: "Demo Site",
       templateId: "modern",
-      theme: {},
-      pages: {},
     })
     .onConflictDoNothing()
 

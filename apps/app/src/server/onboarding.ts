@@ -16,8 +16,8 @@ export interface ProvisionedWorkspace {
 /**
  * First-login onboarding: create a personal org, an owner membership, a default `modern` site, and
  * its private V1 draft state in one transaction. The site stays private (no published revision)
- * until the user explicitly publishes (ADR 0004). Legacy `theme`/`pages` are still written for the
- * pre-cutover renderer; the draft state is the forward-looking source.
+ * until the user explicitly publishes (ADR 0004). The versioned draft state is the only source;
+ * legacy `theme`/`pages` columns were removed once the renderer cut over to revisions.
  */
 export async function provisionInitialWorkspace(
   database: SiteDocumentDatabase,
@@ -58,8 +58,6 @@ export async function provisionInitialWorkspace(
         organizationId,
         name: siteName,
         templateId: template.meta.id,
-        theme: template.defaultTheme as Record<string, unknown>,
-        pages: template.defaultPages as Record<string, unknown>,
       })
       .returning({ id: site.id })
     if (!createdSite) throw new Error("Failed to create onboarding site")

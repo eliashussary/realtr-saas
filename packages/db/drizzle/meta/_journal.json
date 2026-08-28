@@ -43,6 +43,13 @@
       "when": 1787887469155,
       "tag": "0005_past_shape",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787887800691,
+      "tag": "0006_daily_hemingway",
+      "breakpoints": true
     }
   ]
 }

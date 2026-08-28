@@ -21,8 +21,8 @@ const bytea = customType<{ data: Buffer }>({
 })
 
 // A tenant (organization) has many sites: solo realtor = 1; brokerage = brand site + agent sites.
-// `theme`/`pages` are loosely typed jsonb here (the DB layer stays a leaf); the render layer
-// (@realtr/ui ThemeTokens, @realtr/site Puck data) narrows them.
+// Content lives in the versioned document (site_document_state / site_revision); the legacy
+// `theme`/`pages` columns were dropped after the renderer cut over to published revisions.
 export const site = pgTable(
   "site",
   {
@@ -34,8 +34,6 @@ export const site = pgTable(
     ownerMemberId: text().references(() => member.id, { onDelete: "set null" }),
     name: text().notNull(),
     templateId: text().notNull().default("modern"),
-    theme: jsonb().$type<Record<string, unknown>>().notNull().default({}),
-    pages: jsonb().$type<Record<string, unknown>>().notNull().default({}),
     createdAt: timestamp().notNull().defaultNow(),
     updatedAt: timestamp().notNull().defaultNow(),
   },

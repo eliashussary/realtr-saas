@@ -34,6 +34,9 @@ try {
   const migration1 = await readFile("drizzle/0001_fast_warpath.sql", "utf8")
   const migration2 = await readFile("drizzle/0002_mute_justin_hammer.sql", "utf8")
   const migration3 = await readFile("drizzle/0003_workable_firestar.sql", "utf8")
+  const migration4 = await readFile("drizzle/0004_cultured_stephen_strange.sql", "utf8")
+  const migration5 = await readFile("drizzle/0005_past_shape.sql", "utf8")
+  const migration6 = await readFile("drizzle/0006_daily_hemingway.sql", "utf8")
   await upgrade.query(migration0)
   await upgrade.query(migration1)
   await upgrade.query(`
@@ -52,6 +55,11 @@ try {
 
   await upgrade.query(migration2)
   await upgrade.query(migration3)
+  // 0002 migrates the legacy theme/pages into the document; 0006 then drops those columns. The
+  // migrated content must survive the drop.
+  await upgrade.query(migration4)
+  await upgrade.query(migration5)
+  await upgrade.query(migration6)
   const result = await upgrade.query<{
     draft_title: string
     kind: string
