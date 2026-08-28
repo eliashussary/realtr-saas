@@ -54,6 +54,7 @@ evidence; it does not declare its own packet approved.
 | 20 | [M2-A12 Renderer SEO & discovery](M2-A12-renderer-seo.md) | review | M2-A5, M2-A10 | Canonical + Open Graph/Twitter + JSON-LD; per-site sitemap.xml and robots.txt (fail-closed); renderer test runner added; check + test + build + CSS budget pass |
 | 21 | [M3-A1 DDF client](M3-A1-ddf-client.md) | review | M3-D1 | New @realtr/ddf: OAuth + OData pagination + replication + retry, injectable I/O, synthetic fixtures + contract tests; offline, no live calls |
 | 22 | [M3-A2 Listing-source contract v2](M3-A2-listing-source-contract.md) | review | M3-A1 | verify/sync/listEntitlement contract; enriched NormalizedListing; DDF source + normalizer on @realtr/ddf; worker handler updated |
+| 23 | [M3-A3 Sync engine + reconciliation](M3-A3-sync-engine.md) | review | M3-A2 | runListingSync over a repository port; incremental checkpoint + overlap, master-list removal, fail-safe (no checkpoint/removal on error); in-memory tested; TP seams preserved (ADR 0006) |
 
 Dependencies take precedence over the numeric order. M0-E1 and M0-F1 may start after M0-C1 while
 M0-A1/A2 proceeds. M0-G1, M3-D1, and M2-D1 are intentionally parallel tracks.

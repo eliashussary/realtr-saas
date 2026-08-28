@@ -54,9 +54,38 @@ content publicly (see the brief for citations):
 
 Attribution/watermark handling stays a renderer invariant (M3-A6), not optional template content.
 
+## North star: Technology Provider with a deduped feed (retained goal)
+
+The tenant-supplied-key model is a **deliberate MVP stepping stone, not the destination.** The
+intended end state remains Realtr as a CREA **Technology Provider** consuming a single provider-wide,
+**deduplicated** feed, with per-destination entitlement deciding what each tenant may display — the
+efficient model for scale and for the National Shared Pool. MVP must therefore be built so the move
+to it is **additive, not a rewrite.** Seams every MVP slice must preserve:
+
+- **`sourceKey` (DDF `ListingKey`) is the cross-tenant dedup identity.** Persist it on every listing
+  now (distinct from the tenant-local `sourceListingId`), even though MVP keys rows per tenant. A
+  later shared-property table keys on `(source, sourceKey)`; tenant rows become an entitlement join.
+- **Entitlement is a concept, not just a byproduct.** In MVP a tenant's entitlement is "everything
+  its own credential returns," but reconciliation is modeled as *membership in a current master
+  list* — the same shape a per-`DestinationId` master list will take. Keep removal driven by
+  master-list membership, not by per-tenant fetch alone.
+- **The sync engine talks to a repository port, not raw tables.** Swapping the MVP tenant-copy
+  repository for a shared-canonical + entitlement repository is an implementation change behind that
+  port, not an engine rewrite. The engine stays agnostic to tenant-copy vs shared-canonical.
+- **The credential/config model is provider-account-shaped.** Store credentials as an opaque config
+  that can later carry a provider account linked to many destinations (feed type, approved hosts,
+  `DestinationId`s) without changing the `ListingSource` contract.
+- **Provenance stays explicit** so DDF vs non-DDF and per-source identity remain separable when the
+  feed becomes shared.
+
+Sync state/tables (`listing_sync_state`, `listing_sync_run`) are keyed `(org, provider)` in MVP and
+must be able to gain a `destinationId` dimension additively.
+
 ## Follow-up
 
 - Reframe M3-A7 from "blocked pending TP onboarding" to "proceed once a pilot API key yields real
   `$metadata` + sanitized fixtures."
-- Revisit the Technology-Provider model only if/when Realtr needs the National Shared Pool or
-  provider-wide scale beyond individual Member Website Feeds (post-MVP).
+- Keep a standing **M3-B (post-MVP) Technology-Provider track**: TP onboarding, provider-wide
+  deduped feed, per-`DestinationId` entitlement, and National Shared Pool. This is planned work, not
+  a maybe — the seams above exist to make it additive. Its own ADR designs the shared-canonical +
+  entitlement schema when TP onboarding is underway.

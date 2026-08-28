@@ -152,9 +152,15 @@ External discovery gate:
 
 MVP credential model — [ADR 0006](decisions/0006-ddf-credential-model-mvp.md), accepted: tenants
 self-provision their own DDF Web API key (OAuth client credentials) for their own Member Website
-Feed and connect it to Realtr. Technology-Provider onboarding and per-destination entitlement are
-**not** MVP blockers and are deferred to scale. This unblocks the sync engine, connect UI, and (with
-a pilot key) the canonical model; the display/attribution/refresh/deletion obligations still apply.
+Feed and connect it to Realtr. This unblocks the sync engine, connect UI, and (with a pilot key) the
+canonical model; the display/attribution/refresh/deletion obligations still apply.
+
+The tenant-supplied-key model is a **deliberate MVP stepping stone.** The retained north star is
+Realtr as a CREA **Technology Provider** consuming a single provider-wide **deduplicated** feed with
+per-`DestinationId` entitlement (and the National Shared Pool) — a standing **post-MVP M3-B track**,
+not a maybe. ADR 0006 lists the seams every MVP slice must preserve so that move is additive, not a
+rewrite (persist `ListingKey` as the cross-tenant dedup identity; drive removal by master-list
+membership; keep the sync engine behind a repository port; keep config provider-account-shaped).
 
 Work packages:
 

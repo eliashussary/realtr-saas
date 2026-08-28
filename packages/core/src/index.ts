@@ -23,3 +23,10 @@ export {
   type CrmContext,
   type Lead,
 } from "./integrations/crm"
+export {
+  runListingSync,
+  type ListingSyncRepository,
+  type ListingSyncRunResult,
+  type RunListingSyncInput,
+  type SyncMode,
+} from "./integrations/sync"
