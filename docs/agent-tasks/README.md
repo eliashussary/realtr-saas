@@ -48,6 +48,7 @@ evidence; it does not declare its own packet approved.
 | 14 | [M2-A6 Secure preview](M2-A6-secure-preview.md) | done | M2-A2, M2-A3 | Hashed expiring revocable grants, renderer preview route with no-store/noindex, cross-tenant tests pass |
 | 15 | [M2-A5 Renderer cutover](M2-A5-renderer-cutover.md) | done | M2-A2, M2-A4 | Revision-only host rendering, multipage/redirects/404, fail-closed 404/503, ETags; unit + integration tests pass |
 | 16 | [M2-A7 Editor & publishing UI](M2-A7-editor-publishing-ui.md) | done | M2-A3/A4/A6, M0-G1 | Puck editor, CAS autosave + save states/conflict, page switch, publish/preview controls; check + build pass |
+| 17 | [M2-A9 Theme & settings editor](M2-A9-theme-settings-editor.md) | review | M2-A7 | Editable theme/brand/contact/social via CAS autosave; schema-safe value cleaning; check + test + build + CSS budget pass |
 
 Dependencies take precedence over the numeric order. M0-E1 and M0-F1 may start after M0-C1 while
 M0-A1/A2 proceeds. M0-G1, M3-D1, and M2-D1 are intentionally parallel tracks.

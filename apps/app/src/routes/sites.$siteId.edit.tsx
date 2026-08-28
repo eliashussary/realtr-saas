@@ -14,9 +14,22 @@ import {
 import { Toaster } from "@realtr/ui/components/sonner"
 import { type ThemeTokens, themeToCssVars } from "@realtr/ui/tokens"
 import { Link, createFileRoute, redirect } from "@tanstack/react-router"
-import { ChevronLeftIcon, PanelLeftIcon, PanelRightIcon, Redo2Icon, Undo2Icon } from "lucide-react"
+import {
+  ChevronLeftIcon,
+  PanelLeftIcon,
+  PanelRightIcon,
+  Redo2Icon,
+  Settings2Icon,
+  Undo2Icon,
+} from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
+import {
+  type BrandingInput,
+  brandingFromDocument,
+  cleanBrandingInput,
+} from "../components/site-settings"
+import { SiteSettingsDialog } from "../components/site-settings-dialog"
 import { issuePreviewFn, loadSiteDraftFn, publishSiteFn, saveSiteDraftFn } from "../server/site-fns"
 
 interface EditorPage {
@@ -25,10 +38,17 @@ interface EditorPage {
   title: string
   puck: Data
 }
+interface EditorSettings {
+  siteTitle?: string
+  logoAssetId?: string
+  contact?: { email?: string; phone?: string }
+  socialLinks?: Array<{ id: string; service: string; url: string }>
+}
 interface EditorDocument {
   template: { id: string }
   pages: EditorPage[]
-  settings?: { siteTitle?: string }
+  settings?: EditorSettings
+  theme?: ThemeTokens
   [key: string]: unknown
 }
 
@@ -111,6 +131,18 @@ function Editor({
   const [mounted, setMounted] = useState(false)
   const [publishOpen, setPublishOpen] = useState(false)
   const [publishing, setPublishing] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [branding, setBranding] = useState<BrandingInput>(() =>
+    brandingFromDocument(initialDocument),
+  )
+  const brandingRef = useRef(branding)
+  // The preview canvas reads its theme from `previewTheme`, committed only when the settings panel
+  // closes. Puck 0.18 renders the canvas in an iframe, so theme vars must flow through its config;
+  // recomputing that config on every keystroke would re-sync Puck and reset its undo history, so we
+  // hold the committed value steady while the (canvas-covering) settings dialog is open.
+  const [previewTheme, setPreviewTheme] = useState<ThemeTokens>(
+    () => (initialDocument.theme ?? {}) as ThemeTokens,
+  )
   useEffect(() => setMounted(true), [])
   useEffect(() => () => void (timer.current && clearTimeout(timer.current)), [])
 
@@ -144,20 +176,43 @@ function Editor({
     if (dirtyRef.current) await save()
   }, [save])
 
+  // Mark the draft dirty and debounce a save. Shared by block edits and settings edits so both
+  // paths get the same autosave, conflict handling, and status labels.
+  const scheduleSave = useCallback(() => {
+    if (conflictRef.current) return
+    dirtyRef.current = true
+    setSaveState("idle")
+    if (timer.current) clearTimeout(timer.current)
+    timer.current = setTimeout(() => void save(), 800)
+  }, [save])
+
   const onPuckChange = useCallback(
     (next: Data) => {
       const pages = docRef.current.pages.map((page, index) =>
         index === pageIndex ? { ...page, puck: next } : page,
       )
       docRef.current = { ...docRef.current, pages }
-      if (conflictRef.current) return
-      dirtyRef.current = true
-      setSaveState("idle")
-      if (timer.current) clearTimeout(timer.current)
-      timer.current = setTimeout(() => void save(), 800)
+      scheduleSave()
     },
-    [pageIndex, save],
+    [pageIndex, scheduleSave],
   )
+
+  const applyBranding = useCallback(
+    (next: BrandingInput) => {
+      setBranding(next)
+      brandingRef.current = next
+      const clean = cleanBrandingInput(next)
+      docRef.current = { ...docRef.current, settings: clean.settings, theme: clean.theme }
+      scheduleSave()
+    },
+    [scheduleSave],
+  )
+
+  const onSettingsOpenChange = useCallback((open: boolean) => {
+    setSettingsOpen(open)
+    // Reflect the edited theme in the canvas once the panel closes.
+    if (!open) setPreviewTheme(cleanBrandingInput(brandingRef.current).theme)
+  }, [])
 
   const preview = useCallback(async () => {
     await flush()
@@ -184,11 +239,11 @@ function Editor({
   // every render (e.g. each autosave setState) makes it re-sync and flicker. `key={pageIndex}`
   // remounts Puck with the right page's seed data when the page changes.
   const templateId = docRef.current.template.id
-  // The tenant theme is applied to the preview so the canvas matches the published renderer.
-  // Theme editing isn't part of this slice, so it's captured once from the loaded document.
+  // The tenant theme is applied to the preview so the canvas matches the published renderer. It
+  // tracks `previewTheme`, which the settings panel commits on close (see the state declaration).
   const themeStyle = useMemo(
-    () => themeToCssVars((initialDocument.theme ?? {}) as ThemeTokens) as React.CSSProperties,
-    [initialDocument.theme],
+    () => themeToCssVars(previewTheme) as React.CSSProperties,
+    [previewTheme],
   )
   const config = useMemo(() => {
     const base = getTemplate(templateId).buildConfig()
@@ -210,7 +265,7 @@ function Editor({
     () => docRef.current.pages[pageIndex]?.puck ?? ({ content: [], root: {} } as Data),
     [pageIndex],
   )
-  const siteTitle = docRef.current.settings?.siteTitle ?? docRef.current.pages[0]?.title ?? "Site"
+  const siteTitle = branding.settings.siteTitle.trim() || docRef.current.pages[0]?.title || "Site"
   const overrides = useMemo(
     () => ({
       header: () => (
@@ -224,6 +279,7 @@ function Editor({
           canPublish={canPublish}
           onPreview={() => void preview()}
           onPublish={() => setPublishOpen(true)}
+          onOpenSettings={() => setSettingsOpen(true)}
         />
       ),
     }),
@@ -251,6 +307,12 @@ function Editor({
           overrides={overrides}
         />
       </div>
+      <SiteSettingsDialog
+        open={settingsOpen}
+        onOpenChange={onSettingsOpenChange}
+        value={branding}
+        onChange={applyBranding}
+      />
       <Dialog open={publishOpen} onOpenChange={setPublishOpen}>
         <DialogContent>
           <DialogHeader>
@@ -284,6 +346,7 @@ function EditorHeader({
   canPublish,
   onPreview,
   onPublish,
+  onOpenSettings,
 }: {
   siteTitle: string
   pages: EditorPage[]
@@ -294,6 +357,7 @@ function EditorHeader({
   canPublish: boolean
   onPreview: () => void
   onPublish: () => void
+  onOpenSettings: () => void
 }) {
   const { history, dispatch, appState } = usePuck()
   const ui = appState.ui
@@ -376,6 +440,9 @@ function EditorHeader({
           <span className="rounded bg-secondary px-1.5 py-0.5 font-mono">v{version}</span>
           {SAVE_LABEL[saveState]}
         </span>
+        <Button variant="ghost" size="icon-sm" aria-label="Site settings" onClick={onOpenSettings}>
+          <Settings2Icon className="size-4" />
+        </Button>
         <Button variant="outline" size="sm" onClick={onPreview}>
           Preview
         </Button>
