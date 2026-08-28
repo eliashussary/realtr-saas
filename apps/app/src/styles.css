@@ -6,11 +6,11 @@
    buttons) must be generated in the control-centre bundle too — same set the renderer scans. */
 @source "../../../packages/site/src";
 
-/* Make the Puck editor chrome feel native to the control centre: app font, tighter spacing, and
-   the app's accent for selection/focus instead of Puck's default blue. */
+/* Make the Puck editor chrome feel native to the control centre: app font and the app's accent
+   for selection/focus instead of Puck's default blue. A bespoke header (overrides.header) replaces
+   Puck's default top bar. Puck's own header is hidden so ours is the only one. */
 .realtr-editor {
   --puck-font-family: var(--font-body);
-  --puck-space-px: 12px;
   --puck-color-azure-03: var(--color-primary);
   --puck-color-azure-04: var(--color-primary);
   --puck-color-azure-05: var(--color-primary);

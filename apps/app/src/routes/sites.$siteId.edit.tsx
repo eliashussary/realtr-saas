@@ -1,5 +1,5 @@
 import "@measured/puck/puck.css"
-import { Puck } from "@measured/puck"
+import { Puck, usePuck } from "@measured/puck"
 import type { Data } from "@measured/puck"
 import { getTemplate } from "@realtr/site"
 import { Button } from "@realtr/ui/components/button"
@@ -14,6 +14,7 @@ import {
 import { Toaster } from "@realtr/ui/components/sonner"
 import { type ThemeTokens, themeToCssVars } from "@realtr/ui/tokens"
 import { Link, createFileRoute, redirect } from "@tanstack/react-router"
+import { ChevronLeftIcon, PanelLeftIcon, PanelRightIcon, Redo2Icon, Undo2Icon } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import { issuePreviewFn, loadSiteDraftFn, publishSiteFn, saveSiteDraftFn } from "../server/site-fns"
@@ -27,6 +28,7 @@ interface EditorPage {
 interface EditorDocument {
   template: { id: string }
   pages: EditorPage[]
+  settings?: { siteTitle?: string }
   [key: string]: unknown
 }
 
@@ -208,10 +210,12 @@ function Editor({
     () => docRef.current.pages[pageIndex]?.puck ?? ({ content: [], root: {} } as Data),
     [pageIndex],
   )
+  const siteTitle = docRef.current.settings?.siteTitle ?? docRef.current.pages[0]?.title ?? "Site"
   const overrides = useMemo(
     () => ({
-      headerActions: () => (
-        <Toolbar
+      header: () => (
+        <EditorHeader
+          siteTitle={siteTitle}
           pages={docRef.current.pages}
           pageIndex={pageIndex}
           onPageChange={setPageIndex}
@@ -223,7 +227,7 @@ function Editor({
         />
       ),
     }),
-    [pageIndex, saveState, version, canPublish, preview],
+    [siteTitle, pageIndex, saveState, version, canPublish, preview],
   )
 
   if (!mounted) return <Unavailable message="Loading editor…" />
@@ -270,7 +274,8 @@ function Editor({
   )
 }
 
-function Toolbar({
+function EditorHeader({
+  siteTitle,
   pages,
   pageIndex,
   onPageChange,
@@ -280,6 +285,7 @@ function Toolbar({
   onPreview,
   onPublish,
 }: {
+  siteTitle: string
   pages: EditorPage[]
   pageIndex: number
   onPageChange: (index: number) => void
@@ -289,36 +295,96 @@ function Toolbar({
   onPreview: () => void
   onPublish: () => void
 }) {
+  const { history, dispatch, appState } = usePuck()
+  const ui = appState.ui
+
   return (
-    <div className="flex items-center gap-2">
-      <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">
-        ← Dashboard
-      </Link>
-      {pages.length > 1 && (
-        <select
-          className="h-8 rounded-md border border-input bg-transparent px-2 text-sm"
-          value={pageIndex}
-          onChange={(event) => onPageChange(Number(event.target.value))}
+    <header
+      style={{ gridArea: "header" }}
+      className="flex h-14 items-center justify-between gap-4 border-b border-border bg-background px-4"
+    >
+      <div className="flex min-w-0 items-center gap-2">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Toggle components panel"
+          onClick={() =>
+            dispatch({ type: "setUi", ui: { leftSideBarVisible: !ui.leftSideBarVisible } })
+          }
         >
-          {pages.map((page, index) => (
-            <option key={page.id} value={index}>
-              {page.title || page.slug || "Home"}
-            </option>
-          ))}
-        </select>
-      )}
-      <span className="flex items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
-        <span className="rounded bg-secondary px-1.5 py-0.5 font-mono">v{version}</span>
-        {SAVE_LABEL[saveState]}
-      </span>
-      <Button variant="outline" size="sm" onClick={onPreview}>
-        Preview
-      </Button>
-      {canPublish && (
-        <Button size="sm" onClick={onPublish}>
-          Publish
+          <PanelLeftIcon className="size-4" />
         </Button>
-      )}
-    </div>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Toggle page panel"
+          onClick={() =>
+            dispatch({ type: "setUi", ui: { rightSideBarVisible: !ui.rightSideBarVisible } })
+          }
+        >
+          <PanelRightIcon className="size-4" />
+        </Button>
+        <span className="mx-1 h-5 w-px shrink-0 bg-border" />
+        <Link
+          to="/"
+          className="flex shrink-0 items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
+        >
+          <ChevronLeftIcon className="size-4" />
+          Dashboard
+        </Link>
+        <span className="mx-1 h-5 w-px shrink-0 bg-border" />
+        <span className="truncate font-heading text-sm font-semibold text-foreground">
+          {siteTitle}
+        </span>
+      </div>
+
+      <div className="flex shrink-0 items-center gap-2">
+        <div className="flex items-center">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Undo"
+            disabled={!history.hasPast}
+            onClick={() => history.back()}
+          >
+            <Undo2Icon className="size-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Redo"
+            disabled={!history.hasFuture}
+            onClick={() => history.forward()}
+          >
+            <Redo2Icon className="size-4" />
+          </Button>
+        </div>
+        {pages.length > 1 && (
+          <select
+            className="h-8 rounded-md border border-input bg-transparent px-2 text-sm"
+            value={pageIndex}
+            onChange={(event) => onPageChange(Number(event.target.value))}
+          >
+            {pages.map((page, index) => (
+              <option key={page.id} value={index}>
+                {page.title || page.slug || "Home"}
+              </option>
+            ))}
+          </select>
+        )}
+        <span className="flex items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
+          <span className="rounded bg-secondary px-1.5 py-0.5 font-mono">v{version}</span>
+          {SAVE_LABEL[saveState]}
+        </span>
+        <Button variant="outline" size="sm" onClick={onPreview}>
+          Preview
+        </Button>
+        {canPublish && (
+          <Button size="sm" onClick={onPublish}>
+            Publish
+          </Button>
+        )}
+      </div>
+    </header>
   )
 }
