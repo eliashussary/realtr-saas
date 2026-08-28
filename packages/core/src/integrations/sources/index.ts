@@ -10,4 +10,10 @@ export function getSource(provider: string): ListingSource | undefined {
   return sourceRegistry[provider]
 }
 
-export type { ListingSource, NormalizedListing, SourceContext } from "./types"
+export type {
+  ListingSource,
+  ListingStatus,
+  NormalizedListing,
+  SourceContext,
+  SyncResult,
+} from "./types"

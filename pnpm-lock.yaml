@@ -276,6 +276,9 @@ importers:
       '@realtr/db':
         specifier: workspace:*
         version: link:../db
+      '@realtr/ddf':
+        specifier: workspace:*
+        version: link:../ddf
       zod:
         specifier: 'catalog:'
         version: 3.25.76
@@ -314,6 +317,22 @@ importers:
       tsx:
         specifier: ^4.19.2
         version: 4.22.4
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 3.2.7(@types/node@22.20.0)(jiti@2.7.0)(jsdom@30.0.1(@noble/hashes@2.2.0))(lightningcss@1.32.0)(tsx@4.22.4)
+
+  packages/ddf:
+    dependencies:
+      zod:
+        specifier: 'catalog:'
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 22.20.0
       typescript:
         specifier: 'catalog:'
         version: 5.9.3

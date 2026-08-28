@@ -1,20 +1,16 @@
 {
-  "name": "@realtr/core",
+  "name": "@realtr/ddf",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./sources": "./src/integrations/sources/index.ts",
-    "./crm": "./src/integrations/crm/index.ts"
+    ".": "./src/index.ts"
   },
   "scripts": {
     "check": "tsc --noEmit",
     "test:unit": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
-    "@realtr/db": "workspace:*",
-    "@realtr/ddf": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {

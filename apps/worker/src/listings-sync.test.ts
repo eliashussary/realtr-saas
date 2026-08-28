@@ -3,8 +3,13 @@ import { describe, expect, it, vi } from "vitest"
 import { handleListingsSync } from "./listings-sync"
 
 const payload = { version: 1 as const, organizationId: "org-alpha", provider: "fixture" }
-function source(pull: ListingSource["pull"]): ListingSource {
-  return { provider: "fixture", authenticate: async () => {}, pull }
+function source(sync: ListingSource["sync"]): ListingSource {
+  return {
+    provider: "fixture",
+    verify: async () => {},
+    sync,
+    listEntitlement: async () => [],
+  }
 }
 
 describe("listings.sync", () => {
@@ -33,11 +38,11 @@ describe("listings.sync", () => {
     ).rejects.toBe(failure)
   })
 
-  it("pulls for the payload organization without logging configuration", async () => {
-    const pull = vi.fn(async () => [])
+  it("syncs for the payload organization without logging configuration", async () => {
+    const sync = vi.fn(async () => ({ upserts: [] }))
     const log = vi.fn()
-    await handleListingsSync(payload, { getSource: () => source(pull), log })
-    expect(pull).toHaveBeenCalledWith({ config: {}, organizationId: "org-alpha" })
+    await handleListingsSync(payload, { getSource: () => source(sync), log })
+    expect(sync).toHaveBeenCalledWith({ config: {}, organizationId: "org-alpha" })
     expect(log).toHaveBeenCalledWith(expect.stringContaining("org=org-alpha"))
   })
 })
