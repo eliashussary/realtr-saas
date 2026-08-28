@@ -40,18 +40,24 @@ import {
 } from "@realtr/ui/components/tooltip"
 import { createFileRoute } from "@tanstack/react-router"
 import { EllipsisIcon, Loader2Icon, MoonIcon, SunIcon } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { toast } from "sonner"
 
 export const Route = createFileRoute("/workbench")({ component: Workbench })
 
 function Workbench() {
   const [dark, setDark] = useState(false)
+  // Token scope (.realtr-app) lives on <html> so Base UI portals inherit it; toggle dark there too
+  // so previewed dialogs/selects match. Cleaned up on unmount.
+  useEffect(() => {
+    const root = document.documentElement
+    root.classList.toggle("dark", dark)
+    return () => root.classList.remove("dark")
+  }, [dark])
+
   return (
     <TooltipProvider>
-      <main
-        className={`${dark ? "dark" : ""} realtr-app isolate min-h-screen bg-[var(--app-canvas)] p-4 text-foreground sm:p-8`}
-      >
+      <main className="isolate min-h-screen bg-[var(--app-canvas)] p-4 text-foreground sm:p-8">
         <div className="mx-auto grid max-w-6xl gap-8">
           <header className="flex items-start justify-between gap-4">
             <div>

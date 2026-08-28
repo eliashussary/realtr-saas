@@ -38,42 +38,43 @@
   --radius-base: var(--t-radius, 0.625rem);
 }
 
+/* "Shopify Red" (tweakcn): red primary hsl(356 84% 48%) on cool hue-210 neutrals. */
 .realtr-app {
-  --app-canvas: oklch(0.975 0.006 255);
-  --app-surface: oklch(1 0 0);
-  --app-elevated: oklch(0.995 0.003 255);
-  --app-foreground: oklch(0.2 0.025 255);
-  --app-primary: oklch(0.52 0.18 255);
-  --app-primary-foreground: oklch(0.99 0 0);
-  --app-secondary: oklch(0.94 0.015 255);
-  --app-secondary-foreground: oklch(0.25 0.035 255);
-  --app-accent: oklch(0.92 0.04 245);
-  --app-accent-foreground: oklch(0.25 0.035 255);
-  --app-muted-foreground: oklch(0.48 0.025 255);
-  --app-border: oklch(0.88 0.012 255);
-  --app-input: oklch(0.84 0.015 255);
-  --app-ring: oklch(0.58 0.18 255);
-  --app-popover: oklch(1 0 0);
-  --app-popover-foreground: oklch(0.2 0.025 255);
+  --app-canvas: hsl(210 20% 98%);
+  --app-surface: hsl(0 0% 100%);
+  --app-elevated: hsl(0 0% 100%);
+  --app-foreground: hsl(210 10% 12%);
+  --app-primary: hsl(356 84% 48%);
+  --app-primary-foreground: hsl(0 0% 100%);
+  --app-secondary: hsl(210 12% 94%);
+  --app-secondary-foreground: hsl(210 10% 20%);
+  --app-accent: hsl(356 80% 96%);
+  --app-accent-foreground: hsl(356 70% 38%);
+  --app-muted-foreground: hsl(210 8% 45%);
+  --app-border: hsl(210 12% 88%);
+  --app-input: hsl(210 12% 84%);
+  --app-ring: hsl(356 84% 48%);
+  --app-popover: hsl(0 0% 100%);
+  --app-popover-foreground: hsl(210 10% 12%);
 }
 
 .realtr-app.dark {
-  --app-canvas: oklch(0.17 0.018 255);
-  --app-surface: oklch(0.21 0.02 255);
-  --app-elevated: oklch(0.24 0.022 255);
-  --app-foreground: oklch(0.94 0.008 255);
-  --app-primary: oklch(0.7 0.15 250);
-  --app-primary-foreground: oklch(0.16 0.025 255);
-  --app-secondary: oklch(0.28 0.025 255);
-  --app-secondary-foreground: oklch(0.94 0.008 255);
-  --app-accent: oklch(0.31 0.04 250);
-  --app-accent-foreground: oklch(0.95 0.008 255);
-  --app-muted-foreground: oklch(0.7 0.02 255);
-  --app-border: oklch(0.34 0.025 255);
-  --app-input: oklch(0.39 0.025 255);
-  --app-ring: oklch(0.7 0.15 250);
-  --app-popover: oklch(0.22 0.02 255);
-  --app-popover-foreground: oklch(0.94 0.008 255);
+  --app-canvas: hsl(210 10% 4%);
+  --app-surface: hsl(210 10% 7%);
+  --app-elevated: hsl(210 10% 10%);
+  --app-foreground: hsl(0 0% 98%);
+  --app-primary: hsl(356 84% 48%);
+  --app-primary-foreground: hsl(0 0% 100%);
+  --app-secondary: hsl(210 10% 15%);
+  --app-secondary-foreground: hsl(0 0% 98%);
+  --app-accent: hsl(356 84% 15%);
+  --app-accent-foreground: hsl(356 84% 80%);
+  --app-muted-foreground: hsl(210 10% 65%);
+  --app-border: hsl(210 10% 16%);
+  --app-input: hsl(210 10% 20%);
+  --app-ring: hsl(356 84% 48%);
+  --app-popover: hsl(210 10% 7%);
+  --app-popover-foreground: hsl(0 0% 98%);
 }
 
 @layer base {
