@@ -1,0 +1,75 @@
+import { randomUUID } from "node:crypto"
+import { member, organization, site, siteDocumentState } from "@realtr/db"
+import type { SiteDocumentDatabase } from "@realtr/db/site-documents"
+import { getTemplate } from "@realtr/site"
+import {
+  CURRENT_SITE_DOCUMENT_SCHEMA_VERSION,
+  convertLegacySiteDocument,
+} from "@realtr/site/document"
+
+export interface ProvisionedWorkspace {
+  organizationId: string
+  siteId: string
+}
+
+/**
+ * First-login onboarding: create a personal org, an owner membership, a default `modern` site, and
+ * its private V1 draft state in one transaction. The site stays private (no published revision)
+ * until the user explicitly publishes (ADR 0004). Legacy `theme`/`pages` are still written for the
+ * pre-cutover renderer; the draft state is the forward-looking source.
+ */
+export async function provisionInitialWorkspace(
+  database: SiteDocumentDatabase,
+  input: { userId: string; email: string | null | undefined },
+): Promise<ProvisionedWorkspace> {
+  const organizationId = randomUUID()
+  const emailLocal = input.email?.split("@")[0] ?? "My"
+  const orgName = `${emailLocal}'s Agency`
+  const template = getTemplate("modern")
+  const siteName = `${orgName} Site`
+
+  const document = convertLegacySiteDocument(
+    {
+      templateId: template.meta.id,
+      theme: template.defaultTheme,
+      pages: template.defaultPages,
+      siteTitle: siteName,
+    },
+    { generateId: randomUUID },
+  )
+
+  return database.transaction(async (tx) => {
+    await tx.insert(organization).values({
+      id: organizationId,
+      name: orgName,
+      slug: `${emailLocal}-${organizationId.slice(0, 8)}`.toLowerCase(),
+    })
+    await tx.insert(member).values({
+      id: randomUUID(),
+      organizationId,
+      userId: input.userId,
+      role: "owner",
+    })
+    const [createdSite] = await tx
+      .insert(site)
+      .values({
+        organizationId,
+        name: siteName,
+        templateId: template.meta.id,
+        theme: template.defaultTheme as Record<string, unknown>,
+        pages: template.defaultPages as Record<string, unknown>,
+      })
+      .returning({ id: site.id })
+    if (!createdSite) throw new Error("Failed to create onboarding site")
+
+    await tx.insert(siteDocumentState).values({
+      siteId: createdSite.id,
+      organizationId,
+      draftDocument: document as unknown as Record<string, unknown>,
+      draftSchemaVersion: CURRENT_SITE_DOCUMENT_SCHEMA_VERSION,
+      draftUpdatedByUserId: input.userId,
+    })
+
+    return { organizationId, siteId: createdSite.id }
+  })
+}

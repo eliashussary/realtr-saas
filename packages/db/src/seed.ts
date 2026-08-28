@@ -58,6 +58,11 @@ async function main() {
     })
     .onConflictDoNothing()
 
+  // Give the seeded (legacy-shaped) site a draft + published revision, same as the migration
+  // backfill. Idempotent: it skips sites that already have document state.
+  const { sql } = await import("drizzle-orm")
+  await db.execute(sql`select backfill_legacy_site_documents()`)
+
   console.log("Seeded demo org + site + domain (demo.localhost -> Demo Site).")
 }
 

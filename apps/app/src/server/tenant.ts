@@ -18,43 +18,24 @@ export interface DashboardData {
 /** Session-gated dashboard data. Onboards a brand-new user (creates org + first site). */
 export const getDashboard = createServerFn({ method: "GET" }).handler(
   async (): Promise<DashboardData | null> => {
-    const { randomUUID } = await import("node:crypto")
     const { getRequest } = await import("@tanstack/react-start/server")
     const { auth } = await import("../lib/auth")
-    const { db, eq, member, site, domain, organization } = await import("@realtr/db")
+    const { db, eq, site, domain, organization } = await import("@realtr/db")
     const { resolveOrganizationAuthorization } = await import("./authorization")
-    const { getTemplate } = await import("@realtr/site")
 
     const session = await auth.api.getSession({ headers: getRequest().headers })
     if (!session) return null
 
-    const userId = session.user.id
     let authorization = await resolveOrganizationAuthorization(session)
 
-    // Onboarding: new user with no org gets a personal org + a default site (modern template).
+    // Onboarding: new user with no org gets a personal org + a default site + private draft state.
     if (
       !authorization.ok &&
       authorization.code === "forbidden" &&
       !session.session.activeOrganizationId
     ) {
-      const orgId = randomUUID()
-      const emailLocal = session.user.email?.split("@")[0] ?? "My"
-      const orgName = `${emailLocal}'s Agency`
-      await db.insert(organization).values({
-        id: orgId,
-        name: orgName,
-        slug: `${emailLocal}-${orgId.slice(0, 8)}`.toLowerCase(),
-      })
-      const memberId = randomUUID()
-      await db.insert(member).values({ id: memberId, organizationId: orgId, userId, role: "owner" })
-      const tpl = getTemplate("modern")
-      await db.insert(site).values({
-        organizationId: orgId,
-        name: `${orgName} Site`,
-        templateId: tpl.meta.id,
-        theme: tpl.defaultTheme as Record<string, unknown>,
-        pages: tpl.defaultPages as Record<string, unknown>,
-      })
+      const { provisionInitialWorkspace } = await import("./onboarding")
+      await provisionInitialWorkspace(db, { userId: session.user.id, email: session.user.email })
       authorization = await resolveOrganizationAuthorization(session)
     }
 

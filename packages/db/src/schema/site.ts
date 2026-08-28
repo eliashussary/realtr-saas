@@ -181,6 +181,33 @@ export const sitePreviewGrant = pgTable(
   ],
 )
 
+// Tenant-scoped audit trail for document lifecycle actions (saves, deliberate conflict overrides,
+// and — later — publish/rollback/preview). Never store document JSON or personal content here.
+export const siteAuditEvent = pgTable(
+  "site_audit_event",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    organizationId: text().notNull(),
+    siteId: uuid().notNull(),
+    actorUserId: text().references(() => user.id, { onDelete: "set null" }),
+    action: text().notNull(),
+    metadata: jsonb().$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      name: "site_audit_event_organization_site_fk",
+      columns: [table.organizationId, table.siteId],
+      foreignColumns: [site.organizationId, site.id],
+    }).onDelete("cascade"),
+    index("site_audit_event_organization_site_created_at_idx").on(
+      table.organizationId,
+      table.siteId,
+      table.createdAt,
+    ),
+  ],
+)
+
 // Vanity domains attach to a specific site. Backs the Caddy on-demand-TLS `ask` endpoint.
 export const domain = pgTable("domain", {
   id: uuid().primaryKey().defaultRandom(),
