@@ -75,6 +75,16 @@ export const saveSiteDraftFn = createServerFn({ method: "POST" })
     return { ok: false as const, code: "not_found" as const }
   })
 
+export const discardDraftFn = createServerFn({ method: "POST" })
+  .validator((input: unknown) => siteIdInput.parse(input))
+  .handler(async ({ data }) => {
+    const authorization = await requireAuthorization()
+    const { discardDraft } = await import("./site-draft")
+    const result = await discardDraft(authorization, { siteId: data.siteId })
+    if (result.ok) return { ok: true as const, draftVersion: result.draftVersion.toString() }
+    return { ok: false as const, code: result.code }
+  })
+
 export const publishSiteFn = createServerFn({ method: "POST" })
   .validator((input: unknown) => versionInput.parse(input))
   .handler(async ({ data }) => {

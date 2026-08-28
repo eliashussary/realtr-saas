@@ -424,6 +424,59 @@ export function createSiteDocumentRepository(database: SiteDocumentDatabase) {
       }
     },
 
+    /**
+     * Replace the draft with a (validated) document and bump its version — used to discard draft
+     * changes by resetting to the live published revision. Locks the state row and audits.
+     */
+    async resetDraft(input: {
+      organizationId: string
+      siteId: string
+      document: Record<string, unknown>
+      schemaVersion: number
+      actorUserId: string | null
+    }): Promise<{ outcome: "reset"; draftVersion: bigint } | { outcome: "not_found" }> {
+      return database.transaction(async (tx) => {
+        const [state] = await tx
+          .select({ draftVersion: siteDocumentState.draftVersion })
+          .from(siteDocumentState)
+          .where(
+            and(
+              eq(siteDocumentState.organizationId, input.organizationId),
+              eq(siteDocumentState.siteId, input.siteId),
+            ),
+          )
+          .limit(1)
+          .for("update")
+        if (!state) return { outcome: "not_found" }
+
+        const nextDraftVersion = state.draftVersion + 1n
+        await tx
+          .update(siteDocumentState)
+          .set({
+            draftDocument: input.document,
+            draftSchemaVersion: input.schemaVersion,
+            draftVersion: nextDraftVersion,
+            draftUpdatedAt: sql`now()`,
+            draftUpdatedByUserId: input.actorUserId,
+            updatedAt: sql`now()`,
+          })
+          .where(
+            and(
+              eq(siteDocumentState.organizationId, input.organizationId),
+              eq(siteDocumentState.siteId, input.siteId),
+            ),
+          )
+        await tx.insert(siteAuditEvent).values({
+          organizationId: input.organizationId,
+          siteId: input.siteId,
+          actorUserId: input.actorUserId,
+          action: "site_draft.discard",
+          metadata: { draftVersion: nextDraftVersion.toString() },
+        })
+        return { outcome: "reset", draftVersion: nextDraftVersion }
+      })
+    },
+
     /** Revoke a grant within its tenant. Returns false if it is absent or already revoked. */
     async revokePreviewGrant(input: {
       organizationId: string

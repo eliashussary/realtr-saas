@@ -17,6 +17,7 @@ export interface DashboardSite {
   templateId: string
   previewUrl: string
   published: boolean
+  hasUnpublishedChanges: boolean
   subdomain: string
   draftVersion: string
   draftUpdatedAt: string
@@ -37,7 +38,7 @@ export const getDashboard = createServerFn({ method: "GET" }).handler(
   async (): Promise<DashboardData | null> => {
     const { getRequest } = await import("@tanstack/react-start/server")
     const { auth } = await import("../lib/auth")
-    const { db, and, desc, eq, site, domain, organization, siteDocumentState, siteRevision } =
+    const { db, and, desc, eq, sql, site, domain, organization, siteDocumentState, siteRevision } =
       await import("@realtr/db")
     const { resolveOrganizationAuthorization } = await import("./authorization")
 
@@ -126,12 +127,25 @@ export const getDashboard = createServerFn({ method: "GET" }).handler(
           ),
         )
         .orderBy(desc(siteRevision.publicationNumber))
+      // Unpublished changes exist when the draft document differs from the live revision (jsonb
+      // equality is key-order-insensitive). No published revision => nothing to discard against.
+      const changed = state?.pub
+        ? (
+            await db.execute(sql`
+              select (st.draft_document is distinct from r.document) as changed
+              from site_document_state st
+              join site_revision r on r.id = st.published_revision_id
+              where st.site_id = ${s.id}
+            `)
+          ).rows[0]
+        : undefined
       result.push({
         id: s.id,
         name: s.name,
         templateId: s.templateId,
         previewUrl,
         published: Boolean(state?.pub),
+        hasUnpublishedChanges: Boolean((changed as { changed?: boolean } | undefined)?.changed),
         subdomain,
         draftVersion: (state?.draftVersion ?? 1n).toString(),
         draftUpdatedAt: (state?.draftUpdatedAt ?? new Date()).toISOString(),
@@ -192,6 +206,35 @@ export const addDomain = createServerFn({ method: "POST" })
     if (!inserted[0]) throw new Error("Domain unavailable")
 
     return { ok: true, hostname }
+  })
+
+/** Remove a custom domain from a site. The platform subdomain cannot be removed. */
+export const removeDomain = createServerFn({ method: "POST" })
+  .validator((input: unknown) =>
+    z.object({ siteId: z.string().uuid(), hostname: z.string().max(255) }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { getRequest } = await import("@tanstack/react-start/server")
+    const { auth } = await import("../lib/auth")
+    const { db, and, eq, domain } = await import("@realtr/db")
+    const { findAuthorizedSite, resolveOrganizationAuthorization } = await import("./authorization")
+    const { isPlatformHostname } = await import("./platform")
+
+    const session = await auth.api.getSession({ headers: getRequest().headers })
+    const authorization = await resolveOrganizationAuthorization(session)
+    if (!authorization.ok) throw new Error("Not authorized")
+
+    const target = await findAuthorizedSite(authorization, data.siteId)
+    if ("ok" in target && !target.ok) throw new Error("Site not found")
+
+    if (isPlatformHostname(data.hostname)) {
+      return { ok: false as const, code: "platform" as const }
+    }
+
+    await db
+      .delete(domain)
+      .where(and(eq(domain.siteId, data.siteId), eq(domain.hostname, data.hostname)))
+    return { ok: true as const }
   })
 
 /** Change a site's platform subdomain, verifying the new hostname is free before committing. */

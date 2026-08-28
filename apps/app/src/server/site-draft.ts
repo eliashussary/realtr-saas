@@ -76,6 +76,48 @@ export async function saveSiteDraft(
   }
 }
 
+export type DiscardDraftResult =
+  | { ok: true; draftVersion: bigint }
+  | { ok: false; code: "not_found" | "no_published" | "invalid"; issues?: DraftValidationIssue[] }
+
+/**
+ * Discard draft changes by resetting the draft to the current published revision. Requires a
+ * published revision; bumps the draft version so any open editor goes stale.
+ */
+export async function discardDraft(
+  authorization: OrganizationAuthorization,
+  input: { siteId: string },
+): Promise<DiscardDraftResult> {
+  const repository = createSiteDocumentRepository(db)
+  const state = await repository.findState(authorization.organizationId, input.siteId)
+  if (!state) return { ok: false, code: "not_found" }
+  if (!state.publishedRevisionId) return { ok: false, code: "no_published" }
+
+  const revision = await repository.findRevision(
+    authorization.organizationId,
+    input.siteId,
+    state.publishedRevisionId,
+  )
+  if (!revision) return { ok: false, code: "not_found" }
+
+  let document: ReturnType<typeof parseSiteDocument>
+  try {
+    document = parseSiteDocument(revision.document)
+  } catch (error) {
+    return { ok: false, code: "invalid", issues: toIssues(error) }
+  }
+
+  const result = await repository.resetDraft({
+    organizationId: authorization.organizationId,
+    siteId: input.siteId,
+    document: document as unknown as Record<string, unknown>,
+    schemaVersion: revision.schemaVersion,
+    actorUserId: authorization.userId,
+  })
+  if (result.outcome === "not_found") return { ok: false, code: "not_found" }
+  return { ok: true, draftVersion: result.draftVersion }
+}
+
 type ParseResult =
   | { ok: true; document: SiteDocumentV1 }
   | { ok: false; issues: DraftValidationIssue[] }

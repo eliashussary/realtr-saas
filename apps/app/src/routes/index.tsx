@@ -1,9 +1,60 @@
 import { Button, Card, CardContent, CardHeader, CardTitle } from "@realtr/ui"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@realtr/ui/components/dialog"
 import { Link, createFileRoute, redirect, useRouter } from "@tanstack/react-router"
-import { type FormEvent, useState } from "react"
+import { type FormEvent, type ReactNode, useState } from "react"
 import { authClient } from "../lib/auth-client"
-import { rollbackSiteFn } from "../server/site-fns"
-import { type DashboardSite, addDomain, changeSubdomain, getDashboard } from "../server/tenant"
+import { discardDraftFn, rollbackSiteFn } from "../server/site-fns"
+import {
+  type DashboardSite,
+  addDomain,
+  changeSubdomain,
+  getDashboard,
+  removeDomain,
+} from "../server/tenant"
+
+function ConfirmDialog({
+  open,
+  onOpenChange,
+  title,
+  description,
+  confirmLabel,
+  busy,
+  onConfirm,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  title: string
+  description: ReactNode
+  confirmLabel: string
+  busy: boolean
+  onConfirm: () => void
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={onConfirm} disabled={busy}>
+            {busy ? "Working…" : confirmLabel}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
 
 export const Route = createFileRoute("/")({
   loader: async () => {
@@ -86,55 +137,61 @@ function SiteCard({
       <CardContent>
         <SubdomainForm siteId={site.id} subdomain={site.subdomain} platformHost={platformHost} />
         <VersionHistory site={site} canManage={canManage} />
-        <h3 className="mt-6 text-sm font-semibold">Domains</h3>
-        {site.domains.length === 0 ? (
-          <p className="mt-1 text-sm text-muted-foreground">No domains yet.</p>
-        ) : (
-          <ul className="mt-2 flex flex-col gap-1">
-            {site.domains.map((d) => (
-              <li key={d.hostname} className="flex items-center gap-2 text-sm">
-                <span className="font-medium">{d.hostname}</span>
-                <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
-                  {d.status}
-                </span>
-                {d.isPrimary ? <span className="text-xs text-brand">primary</span> : null}
-              </li>
-            ))}
-          </ul>
-        )}
+        <DomainList siteId={site.id} domains={site.domains} platformHost={platformHost} />
         <AddDomainForm siteId={site.id} baseHost={baseHost} />
       </CardContent>
     </Card>
   )
 }
 
+type PendingAction =
+  | { type: "rollback"; revisionId: string; publicationNumber: string }
+  | { type: "discard" }
+
 function VersionHistory({ site, canManage }: { site: DashboardSite; canManage: boolean }) {
   const router = useRouter()
-  const [busy, setBusy] = useState<string | null>(null)
+  const [pending, setPending] = useState<PendingAction | null>(null)
+  const [busy, setBusy] = useState(false)
+  const hasPublished = site.publishedVersions.length > 0
 
-  async function rollback(revisionId: string, publicationNumber: string) {
-    if (
-      !window.confirm(
-        `Roll back to publication ${publicationNumber}? This creates a new publication.`,
-      )
-    )
-      return
-    setBusy(revisionId)
-    const res = await rollbackSiteFn({ data: { siteId: site.id, targetRevisionId: revisionId } })
-    setBusy(null)
+  async function confirm() {
+    if (!pending) return
+    setBusy(true)
+    const res =
+      pending.type === "rollback"
+        ? await rollbackSiteFn({ data: { siteId: site.id, targetRevisionId: pending.revisionId } })
+        : await discardDraftFn({ data: { siteId: site.id } })
+    setBusy(false)
+    setPending(null)
     if (res.ok) await router.invalidate()
-    else window.alert("Rollback failed.")
+    else window.alert(pending.type === "rollback" ? "Rollback failed." : "Discard failed.")
   }
 
   return (
     <div className="mt-6">
       <h3 className="text-sm font-semibold">Versions</h3>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Draft v{site.draftVersion} · edited {new Date(site.draftUpdatedAt).toLocaleString()}
-      </p>
-      {site.publishedVersions.length === 0 ? (
-        <p className="mt-1 text-sm text-muted-foreground">Not published yet.</p>
-      ) : (
+      <div className="mt-1 flex items-center gap-2 text-sm">
+        <span className="text-muted-foreground">
+          Draft v{site.draftVersion} · edited {new Date(site.draftUpdatedAt).toLocaleString()}
+        </span>
+        {site.hasUnpublishedChanges ? (
+          <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
+            Unpublished changes
+          </span>
+        ) : hasPublished ? (
+          <span className="text-xs text-muted-foreground">All changes published</span>
+        ) : null}
+        {canManage && hasPublished && site.hasUnpublishedChanges ? (
+          <button
+            type="button"
+            onClick={() => setPending({ type: "discard" })}
+            className="text-xs text-brand hover:underline"
+          >
+            Discard draft
+          </button>
+        ) : null}
+      </div>
+      {hasPublished ? (
         <ul className="mt-2 flex flex-col gap-1">
           {site.publishedVersions.map((v) => (
             <li key={v.revisionId} className="flex items-center gap-2 text-sm">
@@ -149,17 +206,108 @@ function VersionHistory({ site, canManage }: { site: DashboardSite; canManage: b
               ) : canManage ? (
                 <button
                   type="button"
-                  onClick={() => rollback(v.revisionId, v.publicationNumber)}
-                  disabled={busy !== null}
-                  className="text-xs text-brand hover:underline disabled:opacity-50"
+                  onClick={() =>
+                    setPending({
+                      type: "rollback",
+                      revisionId: v.revisionId,
+                      publicationNumber: v.publicationNumber,
+                    })
+                  }
+                  className="text-xs text-brand hover:underline"
                 >
-                  {busy === v.revisionId ? "Rolling back…" : "Roll back"}
+                  Roll back
+                </button>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-1 text-sm text-muted-foreground">Not published yet.</p>
+      )}
+      <ConfirmDialog
+        open={pending !== null}
+        onOpenChange={(open) => !open && setPending(null)}
+        title={
+          pending?.type === "rollback" ? "Roll back this publication?" : "Discard draft changes?"
+        }
+        description={
+          pending?.type === "rollback"
+            ? `This publishes publication ${pending.publicationNumber} again as a new revision and resets the draft to it.`
+            : "This resets the draft to the current published version. Unpublished changes will be lost."
+        }
+        confirmLabel={pending?.type === "rollback" ? "Roll back" : "Discard"}
+        busy={busy}
+        onConfirm={confirm}
+      />
+    </div>
+  )
+}
+
+function DomainList({
+  siteId,
+  domains,
+  platformHost,
+}: {
+  siteId: string
+  domains: DashboardSite["domains"]
+  platformHost: string
+}) {
+  const router = useRouter()
+  const [pending, setPending] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const custom = domains.filter((d) => !d.hostname.endsWith(`.${platformHost}`))
+
+  async function confirm() {
+    if (!pending) return
+    setBusy(true)
+    const res = await removeDomain({ data: { siteId, hostname: pending } })
+    setBusy(false)
+    setPending(null)
+    if (res.ok) await router.invalidate()
+    else window.alert("Could not remove that domain.")
+  }
+
+  return (
+    <div className="mt-6">
+      <h3 className="text-sm font-semibold">Domains</h3>
+      {domains.length === 0 ? (
+        <p className="mt-1 text-sm text-muted-foreground">No domains yet.</p>
+      ) : (
+        <ul className="mt-2 flex flex-col gap-1">
+          {domains.map((d) => (
+            <li key={d.hostname} className="flex items-center gap-2 text-sm">
+              <span className="font-medium">{d.hostname}</span>
+              <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
+                {d.status}
+              </span>
+              {d.isPrimary ? <span className="text-xs text-brand">primary</span> : null}
+              {custom.includes(d) ? (
+                <button
+                  type="button"
+                  onClick={() => setPending(d.hostname)}
+                  className="text-xs text-red-600 hover:underline"
+                >
+                  Remove
                 </button>
               ) : null}
             </li>
           ))}
         </ul>
       )}
+      <ConfirmDialog
+        open={pending !== null}
+        onOpenChange={(open) => !open && setPending(null)}
+        title="Remove this domain?"
+        description={
+          <>
+            <span className="font-medium">{pending}</span> will stop pointing to this site. You can
+            add it again later.
+          </>
+        }
+        confirmLabel="Remove"
+        busy={busy}
+        onConfirm={confirm}
+      />
     </div>
   )
 }
