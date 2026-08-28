@@ -51,6 +51,7 @@ evidence; it does not declare its own packet approved.
 | 17 | [M2-A9 Theme & settings editor](M2-A9-theme-settings-editor.md) | review | M2-A7 | Editable theme/brand/contact/social via CAS autosave; schema-safe value cleaning; check + test + build + CSS budget pass |
 | 18 | [M2-A10 Page & navigation management](M2-A10-page-navigation-management.md) | review | M2-A7 | Editable pages/slugs/SEO/status, menu, and redirects via CAS autosave; id-keyed canvas; navigation rendered end-to-end; check + test + build + CSS budget pass |
 | 19 | [M2-A11 Template selection](M2-A11-template-selection.md) | review | M2-A7 | Second template (classic) + editor picker; in-place switch preserves content/theme; shared block set with compatibility tests; check + test + build + CSS budget pass |
+| 20 | [M2-A12 Renderer SEO & discovery](M2-A12-renderer-seo.md) | review | M2-A5, M2-A10 | Canonical + Open Graph/Twitter + JSON-LD; per-site sitemap.xml and robots.txt (fail-closed); renderer test runner added; check + test + build + CSS budget pass |
 
 Dependencies take precedence over the numeric order. M0-E1 and M0-F1 may start after M0-C1 while
 M0-A1/A2 proceeds. M0-G1, M3-D1, and M2-D1 are intentionally parallel tracks.

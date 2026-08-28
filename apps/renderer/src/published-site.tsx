@@ -5,11 +5,12 @@ import { type ThemeTokens, themeToCssVars } from "@realtr/ui/tokens"
 import { redirect } from "@tanstack/react-router"
 import { createServerFn } from "@tanstack/react-start"
 import type { CSSProperties } from "react"
+import { buildPageSeo, resolveOrigin, serializeJsonLd } from "./seo"
 
 type Json = string | number | boolean | null | Json[] | { [key: string]: Json }
 
 export type PublishedPageData =
-  | { status: "ok"; document: Json; path: string; revisionId: string }
+  | { status: "ok"; document: Json; path: string; revisionId: string; origin: string }
   | { status: "redirect"; href: string; permanent: boolean }
   | { status: "not_found" }
   | { status: "error" }
@@ -21,6 +22,10 @@ const loadPublishedPage = createServerFn({ method: "GET" })
   .handler(async ({ data: path }): Promise<PublishedPageData> => {
     const { getRequestHeader, setResponseStatus, setResponseHeader } = await import(
       "@tanstack/react-start/server"
+    )
+    const origin = resolveOrigin(
+      getRequestHeader("host") ?? "",
+      getRequestHeader("x-forwarded-proto"),
     )
     const { resolvePublishedSite } = await import("@realtr/core")
     const { resolvePageBySlug: resolvePage } = await import("@realtr/site/document")
@@ -49,7 +54,13 @@ const loadPublishedPage = createServerFn({ method: "GET" })
     // Content-addressed ETag: identical revisions (e.g. a restore) share it.
     setHeader("ETag", `"${result.checksum}"`)
     setHeader("Cache-Control", "public, max-age=0, must-revalidate")
-    return { status: "ok", document: result.document as Json, path, revisionId: result.revisionId }
+    return {
+      status: "ok",
+      document: result.document as Json,
+      path,
+      revisionId: result.revisionId,
+      origin,
+    }
   })
 
 /** Route-loader entry: throws a redirect in the router context, otherwise returns page data. */
@@ -65,20 +76,17 @@ function selectedPage(data: PublishedPageData) {
   if (data.status !== "ok") return null
   const document = data.document as unknown as SiteDocumentV1
   const resolution = resolvePageBySlug(document, data.path)
-  return resolution.kind === "page" ? { document, page: resolution.page } : null
+  return resolution.kind === "page"
+    ? { document, page: resolution.page, origin: data.origin }
+    : null
 }
 
-/** SEO/head meta derived from the resolved page. */
+/** SEO/head meta (title, description, robots, canonical, Open Graph, Twitter) for the page. */
 export function publishedHead(data: PublishedPageData | undefined) {
   const selected = data ? selectedPage(data) : null
   if (!selected) return { meta: [{ title: "Not found" }] }
-  const { document, page } = selected
-  const meta: Array<Record<string, string>> = [
-    { title: page.seo.title ?? page.title ?? document.settings.siteTitle },
-  ]
-  if (page.seo.description) meta.push({ name: "description", content: page.seo.description })
-  if (page.seo.noIndex) meta.push({ name: "robots", content: "noindex, nofollow" })
-  return { meta }
+  const { meta, links } = buildPageSeo(selected.document, selected.page, selected.origin)
+  return { meta, links }
 }
 
 function Unavailable({ message }: { message: string }) {
@@ -97,7 +105,7 @@ export function PublishedPage({ data }: { data: PublishedPageData }) {
   const selected = selectedPage(data)
   if (!selected) return <Unavailable message="This page could not be found." />
 
-  const { document, page } = selected
+  const { document, page, origin } = selected
   const template = getTemplate(document.template.id)
   const config = template.buildConfig()
   const theme = mergeTheme(template.defaultTheme, document.theme)
@@ -110,9 +118,19 @@ export function PublishedPage({ data }: { data: PublishedPageData }) {
       props: { ...page.puck.root?.props, nav: resolveNavigation(document) },
     },
   }
+  const { jsonLd } = buildPageSeo(document, page, origin)
 
   return (
     <div style={themeToCssVars(theme) as CSSProperties}>
+      {jsonLd.map((entry) => (
+        <script
+          key={entry["@type"] as string}
+          type="application/ld+json"
+          // JSON-LD structured data; `<` is escaped in serializeJsonLd so it cannot break out.
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD requires raw script content
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(entry) }}
+        />
+      ))}
       <Render config={config} data={renderData} />
     </div>
   )

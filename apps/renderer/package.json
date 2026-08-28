@@ -8,7 +8,8 @@
     "build": "vite build",
     "start": "node .output/server/index.mjs",
     "generate-routes": "tsr generate",
-    "check": "tsr generate && tsc --noEmit"
+    "check": "tsr generate && tsc --noEmit",
+    "test:unit": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
     "@measured/puck": "catalog:",
@@ -30,6 +31,7 @@
     "nitro": "npm:nitro-nightly@latest",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
-    "vite": "^8.0.0"
+    "vite": "^8.0.0",
+    "vitest": "catalog:"
   }
 }
