@@ -11,6 +11,7 @@ import { Toaster } from "@realtr/ui/components/sonner"
 import { Link, createFileRoute, redirect, useRouter } from "@tanstack/react-router"
 import { type FormEvent, type ReactNode, useState } from "react"
 import { toast } from "sonner"
+import { ListingsCard } from "../components/listings-card"
 import { authClient } from "../lib/auth-client"
 import { discardDraftFn, rollbackSiteFn } from "../server/site-fns"
 import {
@@ -89,6 +90,7 @@ function Dashboard() {
       </div>
 
       <div className="mt-8 flex flex-col gap-6">
+        <ListingsCard />
         {sites.map((site) => (
           <SiteCard
             key={site.id}
