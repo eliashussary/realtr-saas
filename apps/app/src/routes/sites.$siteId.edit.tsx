@@ -105,6 +105,7 @@ function Editor({
     return home >= 0 ? home : 0
   })
   const [saveState, setSaveState] = useState<SaveState>("idle")
+  const [version, setVersion] = useState(initialVersion)
   const [mounted, setMounted] = useState(false)
   const [publishOpen, setPublishOpen] = useState(false)
   const [publishing, setPublishing] = useState(false)
@@ -120,6 +121,7 @@ function Editor({
     })
     if (res.ok) {
       versionRef.current = res.draftVersion
+      setVersion(res.draftVersion)
       setSaveState("saved")
     } else if (res.code === "stale") {
       conflictRef.current = true
@@ -214,13 +216,14 @@ function Editor({
           pageIndex={pageIndex}
           onPageChange={setPageIndex}
           saveState={saveState}
+          version={version}
           canPublish={canPublish}
           onPreview={() => void preview()}
           onPublish={() => setPublishOpen(true)}
         />
       ),
     }),
-    [pageIndex, saveState, canPublish, preview],
+    [pageIndex, saveState, version, canPublish, preview],
   )
 
   if (!mounted) return <Unavailable message="Loading editor…" />
@@ -235,7 +238,7 @@ function Editor({
           </Button>
         </div>
       )}
-      <div className="min-h-0 flex-1">
+      <div className="realtr-editor min-h-0 flex-1">
         <Puck
           key={pageIndex}
           config={config}
@@ -272,6 +275,7 @@ function Toolbar({
   pageIndex,
   onPageChange,
   saveState,
+  version,
   canPublish,
   onPreview,
   onPublish,
@@ -280,12 +284,13 @@ function Toolbar({
   pageIndex: number
   onPageChange: (index: number) => void
   saveState: SaveState
+  version: string
   canPublish: boolean
   onPreview: () => void
   onPublish: () => void
 }) {
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-2">
       <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">
         ← Dashboard
       </Link>
@@ -302,7 +307,10 @@ function Toolbar({
           ))}
         </select>
       )}
-      <span className="text-xs text-muted-foreground">{SAVE_LABEL[saveState]}</span>
+      <span className="flex items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
+        <span className="rounded bg-secondary px-1.5 py-0.5 font-mono">v{version}</span>
+        {SAVE_LABEL[saveState]}
+      </span>
       <Button variant="outline" size="sm" onClick={onPreview}>
         Preview
       </Button>
