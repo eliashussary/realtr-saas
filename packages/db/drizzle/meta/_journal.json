@@ -64,6 +64,13 @@
       "when": 1787934247571,
       "tag": "0008_nifty_quentin_quire",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1787941397882,
+      "tag": "0009_wooden_kronos",
+      "breakpoints": true
     }
   ]
 }

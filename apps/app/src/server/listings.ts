@@ -1,4 +1,10 @@
-import { LISTING_SOURCE_KIND, encryptIntegrationConfig, getSource } from "@realtr/core"
+import {
+  LISTING_SOURCE_KIND,
+  encryptIntegrationConfig,
+  getSource,
+  loadListingSourceConfig,
+  runListingSync,
+} from "@realtr/core"
 import {
   and,
   db,
@@ -100,6 +106,48 @@ export const connectListingSourceFn = createServerFn({ method: "POST" })
     return { ok: true as const }
   })
 
+const syncModeInput = z.object({
+  mode: z.enum(["incremental", "reconcile"]).default("incremental"),
+})
+
+export type TenantSyncResult =
+  | { ok: true; upserted: number; removed: number }
+  | { ok: false; code: "not_connected" | "unknown_provider" | "sync_failed"; message?: string }
+
+/** Run a listing sync inline (used by the manual "sync now" and admin actions). */
+export async function runTenantListingSync(
+  organizationId: string,
+  mode: "incremental" | "reconcile",
+): Promise<TenantSyncResult> {
+  const source = getSource(PROVIDER)
+  if (!source) return { ok: false, code: "unknown_provider" }
+  const config = await loadListingSourceConfig(organizationId, PROVIDER)
+  if (!config) return { ok: false, code: "not_connected" }
+  try {
+    const result = await runListingSync({
+      organizationId,
+      provider: PROVIDER,
+      source,
+      config,
+      mode,
+      repository: createListingRepository(db),
+    })
+    return { ok: true, upserted: result.upserted, removed: result.removed }
+  } catch (error) {
+    return { ok: false, code: "sync_failed", message: safeMessage(error) }
+  }
+}
+
+/** Manual "sync now" for the current tenant — runs a sync immediately and returns the counts. */
+export const syncListingSourceFn = createServerFn({ method: "POST" })
+  .validator((input: unknown) => syncModeInput.parse(input))
+  .handler(async ({ data }) => {
+    const authorization = await resolveAuthorizationOrNull()
+    if (!authorization) return { ok: false as const, code: "unauthorized" as const }
+    if (!canManage(authorization.role)) return { ok: false as const, code: "forbidden" as const }
+    return runTenantListingSync(authorization.organizationId, data.mode)
+  })
+
 /** Disconnect: stop serving (mark this tenant's listings removed) and mark the integration off. */
 export const disconnectListingSourceFn = createServerFn({ method: "POST" }).handler(async () => {
   const authorization = await resolveAuthorizationOrNull()
@@ -176,9 +224,11 @@ export const getListingStatusFn = createServerFn({ method: "GET" }).handler(asyn
       ),
     )
 
+  const { isCurrentUserSuperAdmin } = await import("./super-admin")
   return {
     ok: true as const,
     canManage: canManage(authorization.role),
+    isSuperAdmin: await isCurrentUserSuperAdmin(),
     status: row?.status ?? "disconnected",
     activeListings: counts?.count ?? 0,
     lastReconciledAt: state?.lastReconciledAt?.toISOString() ?? null,

@@ -1,0 +1,1 @@
+ALTER TABLE "integration" ADD COLUMN "sync_paused" boolean DEFAULT false NOT NULL;

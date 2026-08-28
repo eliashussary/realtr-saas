@@ -8,11 +8,13 @@ import {
   connectListingSourceFn,
   disconnectListingSourceFn,
   getListingStatusFn,
+  syncListingSourceFn,
   testListingSourceFn,
 } from "../server/listings"
 
 interface ListingStatus {
   canManage: boolean
+  isSuperAdmin: boolean
   status: string
   activeListings: number
   lastReconciledAt: string | null
@@ -41,7 +43,9 @@ export function ListingsCard() {
   const [clientId, setClientId] = useState("")
   const [clientSecret, setClientSecret] = useState("")
   const [showForm, setShowForm] = useState(false)
-  const [busy, setBusy] = useState<"connect" | "test" | "disconnect" | null>(null)
+  const [busy, setBusy] = useState<
+    "connect" | "test" | "disconnect" | "incremental" | "reconcile" | null
+  >(null)
 
   const load = useCallback(async () => {
     const res = await getListingStatusFn()
@@ -79,6 +83,22 @@ export function ListingsCard() {
       toast.error("You do not have permission to manage integrations.")
     } else {
       toast.error("Could not connect.")
+    }
+  }
+
+  const sync = async (mode: "incremental" | "reconcile") => {
+    setBusy(mode)
+    const res = await syncListingSourceFn({ data: { mode } })
+    setBusy(null)
+    if (res.ok) {
+      toast.success(`Synced — +${res.upserted} / -${res.removed}.`)
+      await load()
+    } else if (res.code === "not_connected") {
+      toast.error("Connect DDF first.")
+    } else if (res.code === "sync_failed") {
+      toast.error(`Sync failed: ${res.message ?? "unknown error"}`)
+    } else {
+      toast.error("Could not sync.")
     }
   }
 
@@ -186,7 +206,18 @@ export function ListingsCard() {
         ) : null}
 
         {canManage && connected && !showForm ? (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button size="sm" onClick={() => void sync("incremental")} disabled={busy !== null}>
+              {busy === "incremental" ? "Syncing…" : "Sync now"}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void sync("reconcile")}
+              disabled={busy !== null}
+            >
+              {busy === "reconcile" ? "Reconciling…" : "Reconcile"}
+            </Button>
             <Button size="sm" variant="outline" onClick={() => setShowForm(true)}>
               Update key
             </Button>
@@ -199,6 +230,12 @@ export function ListingsCard() {
               {busy === "disconnect" ? "Disconnecting…" : "Disconnect"}
             </Button>
           </div>
+        ) : null}
+
+        {status?.isSuperAdmin ? (
+          <a href="/admin" className="text-sm text-brand hover:underline">
+            Open admin console →
+          </a>
         ) : null}
       </CardContent>
     </Card>

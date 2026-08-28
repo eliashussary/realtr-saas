@@ -1,4 +1,4 @@
-import { jsonb, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core"
+import { boolean, jsonb, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core"
 import { organization } from "./auth"
 
 // One shape for both integration kinds. New listing sources / CRMs = new `provider`
@@ -16,6 +16,8 @@ export const integration = pgTable(
     provider: text().notNull(), // "ddf" | "fub" | ...
     config: jsonb().$type<Record<string, unknown>>().notNull().default({}),
     status: text().notNull().default("disconnected"), // disconnected | connected | error
+    // Operator kill-switch: a paused integration is skipped by the scheduled dispatcher.
+    syncPaused: boolean().notNull().default(false),
     createdAt: timestamp().notNull().defaultNow(),
     updatedAt: timestamp().notNull().defaultNow(),
   },

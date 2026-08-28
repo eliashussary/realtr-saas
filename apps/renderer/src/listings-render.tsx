@@ -9,11 +9,14 @@ function listingHref(sourceListingId: string): string {
   return `/listings/${encodeURIComponent(sourceListingId)}`
 }
 
+// CREA's official, hosted "Powered by REALTOR.ca" logo (the same asset the production single-tenant
+// app uses). Served from realtor.ca so it always reflects the current approved mark.
+const POWERED_BY_REALTOR_SVG = "https://www.realtor.ca/images/en-ca/powered_by_realtor.svg"
+
 /**
- * REALTOR.ca DDF attribution. These elements are a compliance requirement on every listing display
- * (DDF Rules §6): the "Powered by REALTOR.ca" mark, the listing brokerage, and the MLS®/REALTOR®
- * trademark statement. The exact approved brand asset/wording is gated (see the M3-D1 brief) and
- * must be swapped for the official logo before launch — this text-based mark is a placeholder.
+ * REALTOR.ca DDF attribution — a compliance requirement on every listing display (DDF Rules §6): the
+ * official "Powered by REALTOR.ca" logo linked to REALTOR.ca, the listing brokerage, and the
+ * MLS®/REALTOR® trademark statement.
  */
 export function ListingAttribution({ brokerageName }: { brokerageName?: string | null }) {
   return (
@@ -21,12 +24,15 @@ export function ListingAttribution({ brokerageName }: { brokerageName?: string |
       {brokerageName ? (
         <p className="font-medium text-foreground">Listing courtesy of {brokerageName}</p>
       ) : null}
-      <p className="mt-1">
-        <a href="https://www.realtor.ca" target="_blank" rel="noreferrer" className="underline">
-          Powered by REALTOR.ca
-        </a>
-      </p>
-      <p className="mt-1">
+      <a
+        href="https://www.realtor.ca/en"
+        target="_blank"
+        rel="noreferrer"
+        className="mt-2 inline-block"
+      >
+        <img width={125} src={POWERED_BY_REALTOR_SVG} alt="Powered by: REALTOR.ca" />
+      </a>
+      <p className="mt-2">
         The trademarks REALTOR®, REALTORS®, and the REALTOR® logo are controlled by The Canadian
         Real Estate Association (CREA). MLS®, Multiple Listing Service®, and the associated logos
         identify professional services rendered by REALTOR® members of CREA.

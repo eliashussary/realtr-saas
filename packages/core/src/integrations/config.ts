@@ -42,12 +42,21 @@ export async function loadListingSourceConfig(
   return decryptIntegrationConfig(row.config)
 }
 
-/** All connected listing-source integrations, for the sync dispatcher to fan out over. */
+/**
+ * Connected, non-paused listing-source integrations, for the scheduled dispatcher to fan out over.
+ * Paused integrations stay connected but are skipped until an operator resumes them.
+ */
 export async function listConnectedListingSources(): Promise<
   Array<{ organizationId: string; provider: string }>
 > {
   return db
     .select({ organizationId: integration.organizationId, provider: integration.provider })
     .from(integration)
-    .where(and(eq(integration.kind, LISTING_SOURCE_KIND), eq(integration.status, "connected")))
+    .where(
+      and(
+        eq(integration.kind, LISTING_SOURCE_KIND),
+        eq(integration.status, "connected"),
+        eq(integration.syncPaused, false),
+      ),
+    )
 }
