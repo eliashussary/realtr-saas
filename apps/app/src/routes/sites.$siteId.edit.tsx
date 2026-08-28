@@ -18,6 +18,7 @@ import { Link, createFileRoute, redirect } from "@tanstack/react-router"
 import {
   ChevronLeftIcon,
   FilesIcon,
+  LayoutTemplateIcon,
   PanelLeftIcon,
   PanelRightIcon,
   Redo2Icon,
@@ -39,6 +40,7 @@ import {
   isHomePage,
   structureFromDocument,
 } from "../components/site-structure"
+import { TemplatePickerDialog } from "../components/template-picker-dialog"
 import { issuePreviewFn, loadSiteDraftFn, publishSiteFn, saveSiteDraftFn } from "../server/site-fns"
 
 interface EditorPage {
@@ -56,7 +58,7 @@ interface EditorSettings {
   socialLinks?: Array<{ id: string; service: string; url: string }>
 }
 interface EditorDocument {
-  template: { id: string }
+  template: { id: string; schemaVersion?: number }
   pages: EditorPage[]
   navigation?: Array<{ id: string; label: string; pageId?: string; href?: string }>
   redirects?: Array<{ id: string; fromSlug: string; toSlug: string; permanent: boolean }>
@@ -145,6 +147,8 @@ function Editor({
   const [publishOpen, setPublishOpen] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [templateOpen, setTemplateOpen] = useState(false)
+  const [templateId, setTemplateId] = useState(initialDocument.template.id)
   const [structureOpen, setStructureOpen] = useState(false)
   const [structure, setStructure] = useState<StructureInput>(() =>
     structureFromDocument(initialDocument),
@@ -252,6 +256,23 @@ function Editor({
     if (!open) setStructureRev((rev) => rev + 1)
   }, [])
 
+  // Switch templates in place: content and theme are shared across templates (same block registry),
+  // so only the template id/version change. Bumping structureRev remounts the canvas with the new
+  // layout's config and Root.
+  const applyTemplate = useCallback(
+    (id: string) => {
+      if (id === docRef.current.template.id) return
+      docRef.current = {
+        ...docRef.current,
+        template: { id, schemaVersion: getTemplate(id).schemaVersion },
+      }
+      setTemplateId(id)
+      setStructureRev((rev) => rev + 1)
+      scheduleSave()
+    },
+    [scheduleSave],
+  )
+
   const applyBranding = useCallback(
     (next: BrandingInput) => {
       setBranding(next)
@@ -293,8 +314,7 @@ function Editor({
   // Stable identities: Puck is uncontrolled after mount, so a new config/data object on every render
   // (e.g. each autosave setState) makes it re-sync and flicker. `key={currentPageId}` remounts Puck
   // with the right page's seed data when the active page changes, and keeps the same page mounted
-  // across reorders/renames.
-  const templateId = docRef.current.template.id
+  // across reorders/renames. `templateId` is state so a template switch rebuilds the config.
   // The tenant theme is applied to the preview so the canvas matches the published renderer. It
   // tracks `previewTheme`, which the settings panel commits on close (see the state declaration).
   const themeStyle = useMemo(
@@ -349,6 +369,7 @@ function Editor({
           onPublish={() => setPublishOpen(true)}
           onOpenSettings={() => setSettingsOpen(true)}
           onOpenStructure={() => setStructureOpen(true)}
+          onOpenTemplate={() => setTemplateOpen(true)}
         />
       ),
     }),
@@ -390,6 +411,12 @@ function Editor({
         currentPageId={currentPageId}
         onEditPage={editPage}
       />
+      <TemplatePickerDialog
+        open={templateOpen}
+        onOpenChange={setTemplateOpen}
+        currentId={templateId}
+        onSelect={applyTemplate}
+      />
       <Dialog open={publishOpen} onOpenChange={setPublishOpen}>
         <DialogContent>
           <DialogHeader>
@@ -425,6 +452,7 @@ function EditorHeader({
   onPublish,
   onOpenSettings,
   onOpenStructure,
+  onOpenTemplate,
 }: {
   siteTitle: string
   pages: Array<{ id: string; title: string; slug: string }>
@@ -437,6 +465,7 @@ function EditorHeader({
   onPublish: () => void
   onOpenSettings: () => void
   onOpenStructure: () => void
+  onOpenTemplate: () => void
 }) {
   const { history, dispatch, appState } = usePuck()
   const ui = appState.ui
@@ -523,6 +552,9 @@ function EditorHeader({
           onClick={onOpenStructure}
         >
           <FilesIcon className="size-4" />
+        </Button>
+        <Button variant="ghost" size="icon-sm" aria-label="Template" onClick={onOpenTemplate}>
+          <LayoutTemplateIcon className="size-4" />
         </Button>
         <span className="flex items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
           <span className="rounded bg-secondary px-1.5 py-0.5 font-mono">v{version}</span>

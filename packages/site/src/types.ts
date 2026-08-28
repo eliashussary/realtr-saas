@@ -9,6 +9,7 @@ export type Pages = Record<string, PageData>
 export interface TemplateMeta {
   id: string
   name: string
+  description?: string
   thumbnail?: string
 }
 

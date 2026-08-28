@@ -1,9 +1,11 @@
+import { classic } from "./templates/classic"
 import { modern } from "./templates/modern"
 import type { TemplateModule } from "./types"
 
 /** templateId -> template module. `app` and `renderer` resolve a site's template here. */
 export const templateRegistry: Record<string, TemplateModule> = {
   modern,
+  classic,
 }
 
 /** Resolve a template by id, falling back to the default (`modern`). */

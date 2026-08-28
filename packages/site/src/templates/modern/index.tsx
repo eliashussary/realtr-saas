@@ -1,7 +1,7 @@
 import type { ThemeTokens } from "@realtr/ui/tokens"
-import type { ReactNode } from "react"
 import { composeConfig } from "../../blocks"
 import type { Pages, TemplateModule } from "../../types"
+import { buildRootConfig } from "../shared"
 import { ModernRoot } from "./root"
 
 const defaultTheme: ThemeTokens = {
@@ -52,30 +52,14 @@ const defaultPages: Pages = {
 }
 
 export const modern: TemplateModule = {
-  meta: { id: "modern", name: "Modern" },
+  meta: {
+    id: "modern",
+    name: "Modern",
+    description: "Clean, sans-serif layout with a split header — a contemporary agent site.",
+  },
   schemaVersion: 1,
   Root: ModernRoot,
   defaultTheme,
   defaultPages,
-  buildConfig: () =>
-    composeConfig({
-      root: {
-        fields: { title: { type: "text" } },
-        defaultProps: { title: "Realtr" },
-        // `nav` is injected at render time by the renderer (document-level navigation), not a Puck
-        // field, so it is read off the props bag rather than declared in `fields`.
-        render: (props) => {
-          const { children, title, nav } = props as {
-            children?: ReactNode
-            title?: string
-            nav?: Array<{ id: string; label: string; href: string }>
-          }
-          return (
-            <ModernRoot title={title} nav={nav}>
-              {children}
-            </ModernRoot>
-          )
-        },
-      },
-    }),
+  buildConfig: () => composeConfig({ root: buildRootConfig(ModernRoot) }),
 }
