@@ -2,6 +2,7 @@ import { Button, Card, CardContent, CardHeader, CardTitle } from "@realtr/ui"
 import { Link, createFileRoute, redirect, useRouter } from "@tanstack/react-router"
 import { type FormEvent, useState } from "react"
 import { authClient } from "../lib/auth-client"
+import { rollbackSiteFn } from "../server/site-fns"
 import { type DashboardSite, addDomain, changeSubdomain, getDashboard } from "../server/tenant"
 
 export const Route = createFileRoute("/")({
@@ -14,7 +15,7 @@ export const Route = createFileRoute("/")({
 })
 
 function Dashboard() {
-  const { orgName, baseHost, platformHost, sites } = Route.useLoaderData()
+  const { orgName, baseHost, platformHost, canManage, sites } = Route.useLoaderData()
   const router = useRouter()
 
   async function signOut() {
@@ -36,7 +37,13 @@ function Dashboard() {
 
       <div className="mt-8 flex flex-col gap-6">
         {sites.map((site) => (
-          <SiteCard key={site.id} site={site} baseHost={baseHost} platformHost={platformHost} />
+          <SiteCard
+            key={site.id}
+            site={site}
+            baseHost={baseHost}
+            platformHost={platformHost}
+            canManage={canManage}
+          />
         ))}
       </div>
     </main>
@@ -47,7 +54,8 @@ function SiteCard({
   site,
   baseHost,
   platformHost,
-}: { site: DashboardSite; baseHost: string; platformHost: string }) {
+  canManage,
+}: { site: DashboardSite; baseHost: string; platformHost: string; canManage: boolean }) {
   return (
     <Card>
       <CardHeader>
@@ -77,6 +85,7 @@ function SiteCard({
       </CardHeader>
       <CardContent>
         <SubdomainForm siteId={site.id} subdomain={site.subdomain} platformHost={platformHost} />
+        <VersionHistory site={site} canManage={canManage} />
         <h3 className="mt-6 text-sm font-semibold">Domains</h3>
         {site.domains.length === 0 ? (
           <p className="mt-1 text-sm text-muted-foreground">No domains yet.</p>
@@ -96,6 +105,62 @@ function SiteCard({
         <AddDomainForm siteId={site.id} baseHost={baseHost} />
       </CardContent>
     </Card>
+  )
+}
+
+function VersionHistory({ site, canManage }: { site: DashboardSite; canManage: boolean }) {
+  const router = useRouter()
+  const [busy, setBusy] = useState<string | null>(null)
+
+  async function rollback(revisionId: string, publicationNumber: string) {
+    if (
+      !window.confirm(
+        `Roll back to publication ${publicationNumber}? This creates a new publication.`,
+      )
+    )
+      return
+    setBusy(revisionId)
+    const res = await rollbackSiteFn({ data: { siteId: site.id, targetRevisionId: revisionId } })
+    setBusy(null)
+    if (res.ok) await router.invalidate()
+    else window.alert("Rollback failed.")
+  }
+
+  return (
+    <div className="mt-6">
+      <h3 className="text-sm font-semibold">Versions</h3>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Draft v{site.draftVersion} · edited {new Date(site.draftUpdatedAt).toLocaleString()}
+      </p>
+      {site.publishedVersions.length === 0 ? (
+        <p className="mt-1 text-sm text-muted-foreground">Not published yet.</p>
+      ) : (
+        <ul className="mt-2 flex flex-col gap-1">
+          {site.publishedVersions.map((v) => (
+            <li key={v.revisionId} className="flex items-center gap-2 text-sm">
+              <span className="font-medium">Publication {v.publicationNumber}</span>
+              <span className="text-muted-foreground">
+                {new Date(v.createdAt).toLocaleString()}
+              </span>
+              {v.isLive ? (
+                <span className="rounded-full bg-success/15 px-2 py-0.5 text-xs font-medium text-success">
+                  Live
+                </span>
+              ) : canManage ? (
+                <button
+                  type="button"
+                  onClick={() => rollback(v.revisionId, v.publicationNumber)}
+                  disabled={busy !== null}
+                  className="text-xs text-brand hover:underline disabled:opacity-50"
+                >
+                  {busy === v.revisionId ? "Rolling back…" : "Roll back"}
+                </button>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }
 

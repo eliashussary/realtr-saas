@@ -4,6 +4,13 @@ import { assertDomainCanBeRegistered, parseDomainInput } from "./domain-input"
 
 const subdomainInput = z.object({ siteId: z.string().uuid(), subdomain: z.string().max(63) })
 
+export interface PublishedVersion {
+  revisionId: string
+  publicationNumber: string
+  createdAt: string
+  isLive: boolean
+}
+
 export interface DashboardSite {
   id: string
   name: string
@@ -11,6 +18,9 @@ export interface DashboardSite {
   previewUrl: string
   published: boolean
   subdomain: string
+  draftVersion: string
+  draftUpdatedAt: string
+  publishedVersions: PublishedVersion[]
   domains: { hostname: string; status: string; isPrimary: boolean }[]
 }
 
@@ -18,6 +28,7 @@ export interface DashboardData {
   orgName: string
   baseHost: string
   platformHost: string
+  canManage: boolean
   sites: DashboardSite[]
 }
 
@@ -26,7 +37,8 @@ export const getDashboard = createServerFn({ method: "GET" }).handler(
   async (): Promise<DashboardData | null> => {
     const { getRequest } = await import("@tanstack/react-start/server")
     const { auth } = await import("../lib/auth")
-    const { db, eq, site, domain, organization, siteDocumentState } = await import("@realtr/db")
+    const { db, and, desc, eq, site, domain, organization, siteDocumentState, siteRevision } =
+      await import("@realtr/db")
     const { resolveOrganizationAuthorization } = await import("./authorization")
 
     const session = await auth.api.getSession({ headers: getRequest().headers })
@@ -91,10 +103,29 @@ export const getDashboard = createServerFn({ method: "GET" }).handler(
       const previewUrl = siteUrl(chosen ? chosen.hostname : platformHostname(org.slug ?? org.id))
       const subdomain = subdomainLabel(platform?.hostname ?? platformHostname(org.slug ?? org.id))
       const [state] = await db
-        .select({ pub: siteDocumentState.publishedRevisionId })
+        .select({
+          pub: siteDocumentState.publishedRevisionId,
+          draftVersion: siteDocumentState.draftVersion,
+          draftUpdatedAt: siteDocumentState.draftUpdatedAt,
+        })
         .from(siteDocumentState)
         .where(eq(siteDocumentState.siteId, s.id))
         .limit(1)
+      const revisions = await db
+        .select({
+          id: siteRevision.id,
+          num: siteRevision.publicationNumber,
+          createdAt: siteRevision.createdAt,
+        })
+        .from(siteRevision)
+        .where(
+          and(
+            eq(siteRevision.organizationId, org.id),
+            eq(siteRevision.siteId, s.id),
+            eq(siteRevision.kind, "published"),
+          ),
+        )
+        .orderBy(desc(siteRevision.publicationNumber))
       result.push({
         id: s.id,
         name: s.name,
@@ -102,6 +133,14 @@ export const getDashboard = createServerFn({ method: "GET" }).handler(
         previewUrl,
         published: Boolean(state?.pub),
         subdomain,
+        draftVersion: (state?.draftVersion ?? 1n).toString(),
+        draftUpdatedAt: (state?.draftUpdatedAt ?? new Date()).toISOString(),
+        publishedVersions: revisions.map((r) => ({
+          revisionId: r.id,
+          publicationNumber: (r.num ?? 0n).toString(),
+          createdAt: r.createdAt.toISOString(),
+          isLive: r.id === state?.pub,
+        })),
         domains: domains.map((d) => ({
           hostname: d.hostname,
           status: d.status,
@@ -110,7 +149,8 @@ export const getDashboard = createServerFn({ method: "GET" }).handler(
       })
     }
 
-    return { orgName: org.name, baseHost, platformHost: platformHost(), sites: result }
+    const canManage = authorization.role === "owner" || authorization.role === "admin"
+    return { orgName: org.name, baseHost, platformHost: platformHost(), canManage, sites: result }
   },
 )
 
