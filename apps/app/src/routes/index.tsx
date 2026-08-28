@@ -182,30 +182,30 @@ function VersionHistory({ site, canManage }: { site: DashboardSite; canManage: b
   return (
     <div className="mt-6">
       <h3 className="text-sm font-semibold">Versions</h3>
-      <div className="mt-1 flex items-center gap-2 text-sm">
-        <span className="text-muted-foreground">
-          Draft · edited {new Date(site.draftUpdatedAt).toLocaleString()}
-        </span>
-        <code className="rounded bg-secondary px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
-          {site.draftHash}
-        </code>
-        {site.hasUnpublishedChanges ? (
-          <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
-            Unpublished changes
+      {site.hasUnpublishedChanges || !hasPublished ? (
+        <div className="mt-1 flex items-center gap-2 text-sm">
+          <span className="text-muted-foreground">
+            Draft · edited {new Date(site.draftUpdatedAt).toLocaleString()}
           </span>
-        ) : hasPublished ? (
-          <span className="text-xs text-muted-foreground">All changes published</span>
-        ) : null}
-        {canManage && hasPublished && site.hasUnpublishedChanges ? (
-          <button
-            type="button"
-            onClick={() => setPending({ type: "discard" })}
-            className="text-xs text-brand hover:underline"
-          >
-            Discard draft
-          </button>
-        ) : null}
-      </div>
+          <code className="rounded bg-secondary px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
+            {site.draftHash}
+          </code>
+          {site.hasUnpublishedChanges ? (
+            <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
+              Unpublished changes
+            </span>
+          ) : null}
+          {canManage && site.hasUnpublishedChanges ? (
+            <button
+              type="button"
+              onClick={() => setPending({ type: "discard" })}
+              className="text-xs text-brand hover:underline"
+            >
+              Discard draft
+            </button>
+          ) : null}
+        </div>
+      ) : null}
       {hasPublished ? (
         <ul className="mt-2 flex flex-col gap-1">
           {site.publishedVersions.map((v) => (
