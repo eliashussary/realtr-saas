@@ -306,6 +306,8 @@ workstreams. The first needed decisions are:
 - plan/entitlement model and billing lifecycle
 - asset upload/storage/image transformation provider
 - UI system and visual quality workflow (proposal: `docs/decisions/0001-ui-system.md`)
+- user-supplied templates: tiered approach, code templates deferred
+  ([ADR 0005](decisions/0005-user-supplied-templates.md), accepted)
 - deployment target beyond the current single-host Docker topology
 
 An ADR should state context, decision, alternatives considered, consequences, and follow-up work.
@@ -322,3 +324,8 @@ Deferred unless pilot evidence changes priority: brokerage hierarchies beyond sc
 multiple listing providers, multiple CRMs, OAuth/social login, a large template marketplace,
 advanced analytics, custom code, multilingual editing, and customer-facing domain registration or
 purchase. Custom-domain connection is MVP; acting as a registrar is not.
+
+User-supplied templates follow [ADR 0005](decisions/0005-user-supplied-templates.md): saved-preset
+(Tier 1) and configurable-layout (Tier 2) templates are accepted in principle but scheduled for
+later M2/post-MVP slices, and code or sandboxed-markup templates (Tier 3) are out of the MVP
+boundary pending their own ADR.
