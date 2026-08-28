@@ -37,7 +37,7 @@ evidence; it does not declare its own packet approved.
 | 3 | [M0-A2 Secure domain mutations](M0-A2-secure-domain-mutations.md) | review | M0-A1 | Implementation verified; manual flow evidence remains |
 | 4 | [M0-E1 Listing identity migration](M0-E1-listing-identity-migration.md) | done | M0-C1 | Tenant-scoped constraint and regression tests established |
 | 5 | [M0-F1 Worker lifecycle](M0-F1-worker-lifecycle.md) | done | M0-C1 | Lifecycle, readiness, shutdown, and zero-startup-job evidence approved |
-| 6 | [M0-G1 UI system spike](M0-G1-ui-system-spike.md) | review | ADR 0001 | Workbench, accessibility, and visual evidence await product approval |
+| 6 | [M0-G1 UI system spike](M0-G1-ui-system-spike.md) | done | ADR 0001 | Approved 2026-08-27 (Shopify Red palette); UI system unblocks A7 |
 | 7 | [M3-D1 DDF discovery brief](M3-D1-ddf-discovery-brief.md) | done | — | Production DDF client/model blocked on CREA answers |
 | 8 | [M2-D1 Draft/publish ADR](M2-D1-draft-publish-adr.md) | done | — | ADR 0004 and its MVP defaults were accepted |
 | 9 | [M0-D1 CI baseline](M0-D1-ci-baseline.md) | done | C1 and stable root scripts | Hosted quality and PostgreSQL jobs pass on main |
@@ -47,6 +47,7 @@ evidence; it does not declare its own packet approved.
 | 13 | [M2-A4 Publication service](M2-A4-publication-service.md) | done | M2-A2, M2-A3 | Locked atomic publish/rollback, publication pointer, permission gate, audit, failure/cross-tenant tests pass |
 | 14 | [M2-A6 Secure preview](M2-A6-secure-preview.md) | done | M2-A2, M2-A3 | Hashed expiring revocable grants, renderer preview route with no-store/noindex, cross-tenant tests pass |
 | 15 | [M2-A5 Renderer cutover](M2-A5-renderer-cutover.md) | done | M2-A2, M2-A4 | Revision-only host rendering, multipage/redirects/404, fail-closed 404/503, ETags; unit + integration tests pass |
+| 16 | [M2-A7 Editor & publishing UI](M2-A7-editor-publishing-ui.md) | done | M2-A3/A4/A6, M0-G1 | Puck editor, CAS autosave + save states/conflict, page switch, publish/preview controls; check + build pass |
 
 Dependencies take precedence over the numeric order. M0-E1 and M0-F1 may start after M0-C1 while
 M0-A1/A2 proceeds. M0-G1, M3-D1, and M2-D1 are intentionally parallel tracks.

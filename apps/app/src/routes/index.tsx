@@ -1,5 +1,5 @@
 import { Button, Card, CardContent, CardHeader, CardTitle } from "@realtr/ui"
-import { createFileRoute, redirect, useRouter } from "@tanstack/react-router"
+import { Link, createFileRoute, redirect, useRouter } from "@tanstack/react-router"
 import { type FormEvent, useState } from "react"
 import { authClient } from "../lib/auth-client"
 import { type DashboardSite, addDomain, getDashboard } from "../server/tenant"
@@ -56,6 +56,9 @@ function SiteCard({ site, baseHost }: { site: DashboardSite; baseHost: string })
         <a href={site.previewUrl} className="text-sm text-brand" target="_blank" rel="noreferrer">
           {site.previewUrl} ↗
         </a>
+        <Link to="/sites/$siteId/edit" params={{ siteId: site.id }} className="mt-2 inline-block">
+          <Button size="sm">Edit site</Button>
+        </Link>
       </CardHeader>
       <CardContent>
         <h3 className="text-sm font-semibold">Domains</h3>

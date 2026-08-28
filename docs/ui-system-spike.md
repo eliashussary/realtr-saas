@@ -61,6 +61,9 @@ marketing) after every production build.
 
 ## Review checkpoint
 
-Product-owner approval is still required for the density, blue primary treatment, radius, dark
-surfaces, and representative form composition before any live control-centre screen migration.
-The next UI slice should add screenshot automation rather than silently refreshing committed PNGs.
+**Approved 2026-08-27.** The product owner approved the density, radius, dark surfaces, and
+representative form composition. The primary was changed from blue to the tweakcn "Shopify Red"
+palette (red primary on cool hue-210 neutrals) at approval. A portal token-scope bug was fixed in
+the same change: `.realtr-app` now sits on `<html>` so Base UI portals inherit app tokens instead of
+tenant `--t-*` fallbacks. Committed `docs/ui-baselines/*.png` are stale pending screenshot
+automation; the next UI slice should add that rather than silently refreshing committed PNGs.

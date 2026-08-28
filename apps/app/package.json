@@ -13,6 +13,7 @@
     "auth:generate": "pnpm dlx @better-auth/cli generate --config src/lib/auth.ts --output ../../packages/db/src/schema/auth.generated.ts -y"
   },
   "dependencies": {
+    "@measured/puck": "catalog:",
     "@realtr/db": "workspace:*",
     "@realtr/site": "workspace:*",
     "@realtr/ui": "workspace:*",
