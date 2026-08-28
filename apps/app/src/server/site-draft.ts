@@ -89,7 +89,7 @@ function tryParse(input: unknown): ParseResult {
 }
 
 /** Extract structured validation paths from a ZodError, falling back to a single message. */
-function toIssues(error: unknown): DraftValidationIssue[] {
+export function toIssues(error: unknown): DraftValidationIssue[] {
   const zodIssues = (error as { issues?: unknown })?.issues
   if (Array.isArray(zodIssues)) {
     return zodIssues.map((issue) => ({

@@ -28,6 +28,34 @@ export type SaveDraftResult =
   | { outcome: "stale"; currentDraftVersion: bigint }
   | { outcome: "not_found" }
 
+export interface PublishDraftInput {
+  organizationId: string
+  siteId: string
+  expectedDraftVersion: bigint
+  document: Record<string, unknown>
+  schemaVersion: number
+  actorUserId: string | null
+}
+
+export type PublishDraftResult =
+  | { outcome: "published"; revisionId: string; publicationNumber: bigint; publishedAt: Date }
+  | { outcome: "stale"; currentDraftVersion: bigint }
+  | { outcome: "not_found" }
+
+export interface RollbackInput {
+  organizationId: string
+  siteId: string
+  targetRevisionId: string
+  document: Record<string, unknown>
+  schemaVersion: number
+  actorUserId: string | null
+  reason?: string
+}
+
+export type RollbackResult =
+  | { outcome: "rolled_back"; revisionId: string; publicationNumber: bigint; draftVersion: bigint }
+  | { outcome: "not_found" }
+
 /**
  * Tenant-scoped persistence for document state and append-only revisions.
  * Validation belongs to @realtr/site/document before values reach this repository.
@@ -133,6 +161,171 @@ export function createSiteDocumentRepository(database: SiteDocumentDatabase) {
         })
 
         return { outcome: "saved", draftVersion: saved.draftVersion, savedAt: saved.savedAt }
+      })
+    },
+
+    /**
+     * Snapshot the (validated) draft as an immutable published revision and atomically move the
+     * live pointer, all under a `FOR UPDATE` lock on the state row. The caller supplies the
+     * document; a matching `expectedDraftVersion` under lock guarantees it equals the current draft.
+     */
+    async publishDraft(input: PublishDraftInput): Promise<PublishDraftResult> {
+      return database.transaction(async (tx) => {
+        const [state] = await tx
+          .select()
+          .from(siteDocumentState)
+          .where(
+            and(
+              eq(siteDocumentState.organizationId, input.organizationId),
+              eq(siteDocumentState.siteId, input.siteId),
+            ),
+          )
+          .limit(1)
+          .for("update")
+        if (!state) return { outcome: "not_found" }
+        if (state.draftVersion !== input.expectedDraftVersion) {
+          return { outcome: "stale", currentDraftVersion: state.draftVersion }
+        }
+
+        const publicationNumber = state.nextPublicationNumber
+        const [revision] = await tx
+          .insert(siteRevision)
+          .values({
+            organizationId: input.organizationId,
+            siteId: input.siteId,
+            kind: "published",
+            document: input.document,
+            schemaVersion: input.schemaVersion,
+            sourceDraftVersion: input.expectedDraftVersion,
+            publicationNumber,
+            actorType: "user",
+            createdByUserId: input.actorUserId,
+          })
+          .returning({ id: siteRevision.id, createdAt: siteRevision.createdAt })
+        if (!revision) throw new Error("Failed to create published revision")
+
+        await tx
+          .update(siteDocumentState)
+          .set({
+            publishedRevisionId: revision.id,
+            nextPublicationNumber: publicationNumber + 1n,
+            updatedAt: sql`now()`,
+          })
+          .where(
+            and(
+              eq(siteDocumentState.organizationId, input.organizationId),
+              eq(siteDocumentState.siteId, input.siteId),
+            ),
+          )
+
+        await tx.insert(siteAuditEvent).values({
+          organizationId: input.organizationId,
+          siteId: input.siteId,
+          actorUserId: input.actorUserId,
+          action: "site.publish",
+          metadata: { publicationNumber: publicationNumber.toString(), revisionId: revision.id },
+        })
+
+        return {
+          outcome: "published",
+          revisionId: revision.id,
+          publicationNumber,
+          publishedAt: revision.createdAt,
+        }
+      })
+    },
+
+    /**
+     * Roll back to a historical published revision by creating a NEW published revision from its
+     * (validated) document, moving the pointer, and resetting the draft so a stale editor cannot
+     * republish the old draft. History is never mutated; publication numbers are never reused.
+     */
+    async rollbackToRevision(input: RollbackInput): Promise<RollbackResult> {
+      return database.transaction(async (tx) => {
+        const [state] = await tx
+          .select()
+          .from(siteDocumentState)
+          .where(
+            and(
+              eq(siteDocumentState.organizationId, input.organizationId),
+              eq(siteDocumentState.siteId, input.siteId),
+            ),
+          )
+          .limit(1)
+          .for("update")
+        if (!state) return { outcome: "not_found" }
+
+        const [target] = await tx
+          .select({ id: siteRevision.id })
+          .from(siteRevision)
+          .where(
+            and(
+              eq(siteRevision.organizationId, input.organizationId),
+              eq(siteRevision.siteId, input.siteId),
+              eq(siteRevision.id, input.targetRevisionId),
+              eq(siteRevision.kind, "published"),
+            ),
+          )
+          .limit(1)
+        if (!target) return { outcome: "not_found" }
+
+        const publicationNumber = state.nextPublicationNumber
+        const nextDraftVersion = state.draftVersion + 1n
+        const [revision] = await tx
+          .insert(siteRevision)
+          .values({
+            organizationId: input.organizationId,
+            siteId: input.siteId,
+            kind: "published",
+            document: input.document,
+            schemaVersion: input.schemaVersion,
+            sourceDraftVersion: state.draftVersion,
+            publicationNumber,
+            actorType: "user",
+            createdByUserId: input.actorUserId,
+            reason: input.reason,
+            basedOnRevisionId: input.targetRevisionId,
+          })
+          .returning({ id: siteRevision.id })
+        if (!revision) throw new Error("Failed to create rollback revision")
+
+        await tx
+          .update(siteDocumentState)
+          .set({
+            publishedRevisionId: revision.id,
+            nextPublicationNumber: publicationNumber + 1n,
+            draftDocument: input.document,
+            draftSchemaVersion: input.schemaVersion,
+            draftVersion: nextDraftVersion,
+            draftUpdatedAt: sql`now()`,
+            draftUpdatedByUserId: input.actorUserId,
+            updatedAt: sql`now()`,
+          })
+          .where(
+            and(
+              eq(siteDocumentState.organizationId, input.organizationId),
+              eq(siteDocumentState.siteId, input.siteId),
+            ),
+          )
+
+        await tx.insert(siteAuditEvent).values({
+          organizationId: input.organizationId,
+          siteId: input.siteId,
+          actorUserId: input.actorUserId,
+          action: "site.rollback",
+          metadata: {
+            publicationNumber: publicationNumber.toString(),
+            revisionId: revision.id,
+            basedOnRevisionId: input.targetRevisionId,
+          },
+        })
+
+        return {
+          outcome: "rolled_back",
+          revisionId: revision.id,
+          publicationNumber,
+          draftVersion: nextDraftVersion,
+        }
       })
     },
   }
