@@ -152,13 +152,19 @@ export function createListingRepository(database: ListingDatabase) {
 
 export type ListingRepository = ReturnType<typeof createListingRepository>
 
-/** Read a tenant's currently-active listings for public rendering (M3-A6 will build on this). */
+export interface ActiveListingRow {
+  sourceListingId: string
+  sourceKey: string
+  data: Record<string, unknown>
+}
+
+/** Read a tenant's currently-active listings for public rendering. */
 export async function listActiveListings(
   database: ListingDatabase,
   organizationId: string,
   options: { limit?: number } = {},
-): Promise<Array<{ sourceListingId: string; sourceKey: string; data: Record<string, unknown> }>> {
-  const rows = await database
+): Promise<ActiveListingRow[]> {
+  return database
     .select({
       sourceListingId: listing.sourceListingId,
       sourceKey: listing.sourceKey,
@@ -168,5 +174,28 @@ export async function listActiveListings(
     .where(and(eq(listing.organizationId, organizationId), eq(listing.status, "active")))
     .orderBy(sql`${listing.sourceModifiedAt} desc nulls last`)
     .limit(options.limit ?? 60)
-  return rows
+}
+
+/** Read one currently-active listing by its tenant-local id, or null. */
+export async function getActiveListing(
+  database: ListingDatabase,
+  organizationId: string,
+  sourceListingId: string,
+): Promise<ActiveListingRow | null> {
+  const [row] = await database
+    .select({
+      sourceListingId: listing.sourceListingId,
+      sourceKey: listing.sourceKey,
+      data: listing.data,
+    })
+    .from(listing)
+    .where(
+      and(
+        eq(listing.organizationId, organizationId),
+        eq(listing.sourceListingId, sourceListingId),
+        eq(listing.status, "active"),
+      ),
+    )
+    .limit(1)
+  return row ?? null
 }

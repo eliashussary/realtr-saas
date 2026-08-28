@@ -5,6 +5,7 @@ import { resolveSiteByHost } from "./tenant"
 export type PublishedSiteResult =
   | {
       status: "ok"
+      organizationId: string
       siteId: string
       revisionId: string
       checksum: string
@@ -35,6 +36,7 @@ export async function resolvePublishedSite(host: string): Promise<PublishedSiteR
 
   return {
     status: "ok",
+    organizationId: resolved.organization.id,
     siteId: resolved.site.id,
     revisionId: revision.id,
     checksum: revision.documentChecksum ?? revision.id,
