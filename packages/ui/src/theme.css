@@ -77,6 +77,31 @@
   --app-popover-foreground: hsl(0 0% 98%);
 }
 
+/*
+ * Tenant preview inside the control centre. The editor renders tenant blocks under `.realtr-app`,
+ * so without this they'd pick up the app's own tokens. Reset every `--app-*` to `initial` so the
+ * blocks resolve `--color-*` to the tenant `--t-*` values (set via themeToCssVars) exactly like the
+ * public renderer, which has no `.realtr-app`. Keep this list in sync with the `--app-*` set above.
+ */
+.tenant-preview {
+  --app-canvas: initial;
+  --app-surface: initial;
+  --app-elevated: initial;
+  --app-foreground: initial;
+  --app-primary: initial;
+  --app-primary-foreground: initial;
+  --app-secondary: initial;
+  --app-secondary-foreground: initial;
+  --app-accent: initial;
+  --app-accent-foreground: initial;
+  --app-muted-foreground: initial;
+  --app-border: initial;
+  --app-input: initial;
+  --app-ring: initial;
+  --app-popover: initial;
+  --app-popover-foreground: initial;
+}
+
 @layer base {
   body {
     background-color: var(--color-background);

@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@realtr/ui/components/dialog"
 import { Toaster } from "@realtr/ui/components/sonner"
+import { type ThemeTokens, themeToCssVars } from "@realtr/ui/tokens"
 import { createFileRoute, redirect } from "@tanstack/react-router"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
@@ -179,7 +180,28 @@ function Editor({
   // every render (e.g. each autosave setState) makes it re-sync and flicker. `key={pageIndex}`
   // remounts Puck with the right page's seed data when the page changes.
   const templateId = docRef.current.template.id
-  const config = useMemo(() => getTemplate(templateId).buildConfig(), [templateId])
+  // The tenant theme is applied to the preview so the canvas matches the published renderer.
+  // Theme editing isn't part of this slice, so it's captured once from the loaded document.
+  const themeStyle = useMemo(
+    () => themeToCssVars((initialDocument.theme ?? {}) as ThemeTokens) as React.CSSProperties,
+    [initialDocument.theme],
+  )
+  const config = useMemo(() => {
+    const base = getTemplate(templateId).buildConfig()
+    const baseRender = base.root?.render
+    return {
+      ...base,
+      root: {
+        ...base.root,
+        render: (props: { children?: React.ReactNode } & Record<string, unknown>) => (
+          <div className="tenant-preview" style={themeStyle}>
+            {/* biome-ignore lint/suspicious/noExplicitAny: Puck root render prop passthrough */}
+            {baseRender ? baseRender(props as any) : props.children}
+          </div>
+        ),
+      },
+    }
+  }, [templateId, themeStyle])
   const initialData = useMemo<Data>(
     () => docRef.current.pages[pageIndex]?.puck ?? ({ content: [], root: {} } as Data),
     [pageIndex],
