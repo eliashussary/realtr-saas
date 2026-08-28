@@ -46,6 +46,7 @@ evidence; it does not declare its own packet approved.
 | 12 | [M2-A3 Tenant-scoped draft API](M2-A3-tenant-scoped-draft-api.md) | done | M2-A1, M2-A2, M0-A1 | Authorized load, CAS autosave, typed conflicts, audit events, atomic onboarding, two-tenant tests pass |
 | 13 | [M2-A4 Publication service](M2-A4-publication-service.md) | done | M2-A2, M2-A3 | Locked atomic publish/rollback, publication pointer, permission gate, audit, failure/cross-tenant tests pass |
 | 14 | [M2-A6 Secure preview](M2-A6-secure-preview.md) | done | M2-A2, M2-A3 | Hashed expiring revocable grants, renderer preview route with no-store/noindex, cross-tenant tests pass |
+| 15 | [M2-A5 Renderer cutover](M2-A5-renderer-cutover.md) | done | M2-A2, M2-A4 | Revision-only host rendering, multipage/redirects/404, fail-closed 404/503, ETags; unit + integration tests pass |
 
 Dependencies take precedence over the numeric order. M0-E1 and M0-F1 may start after M0-C1 while
 M0-A1/A2 proceeds. M0-G1, M3-D1, and M2-D1 are intentionally parallel tracks.

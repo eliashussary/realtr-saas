@@ -404,6 +404,32 @@ export function normalizePageSlug(input: string): string {
   return normalized
 }
 
+export type PageResolution =
+  | { kind: "page"; page: SiteDocumentV1["pages"][number] }
+  | { kind: "redirect"; toSlug: string; permanent: boolean }
+  | { kind: "not_found" }
+
+/**
+ * Route a request path to a page within a document. Only `active` pages are served publicly; a
+ * matching redirect wins over a 404. An un-normalizable path is simply not found.
+ */
+export function resolvePageBySlug(document: SiteDocumentV1, rawSlug: string): PageResolution {
+  let slug: string
+  try {
+    slug = normalizePageSlug(rawSlug)
+  } catch {
+    return { kind: "not_found" }
+  }
+
+  const page = document.pages.find((candidate) => candidate.slug === slug)
+  if (page) return page.status === "active" ? { kind: "page", page } : { kind: "not_found" }
+
+  const redirect = document.redirects.find((candidate) => candidate.fromSlug === slug)
+  if (redirect) return { kind: "redirect", toSlug: redirect.toSlug, permanent: redirect.permanent }
+
+  return { kind: "not_found" }
+}
+
 export function canonicalizeSiteDocument(document: SiteDocumentV1): SiteDocumentV1 {
   return {
     ...document,

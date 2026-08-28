@@ -34,7 +34,7 @@ async function main() {
     .values({ id: MEMBER_ID, organizationId: ORG_ID, userId: USER_ID, role: "owner" })
     .onConflictDoNothing()
 
-  // Empty theme/pages => renderer falls back to the template's defaults.
+  // Legacy-shaped site; the backfill below turns it into a published revision the renderer serves.
   await db
     .insert(site)
     .values({
