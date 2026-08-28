@@ -5,13 +5,11 @@ import { getTemplate } from "@realtr/site"
 import { Button } from "@realtr/ui/components/button"
 import {
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@realtr/ui/components/dialog"
 import { Toaster } from "@realtr/ui/components/sonner"
 import { createFileRoute, redirect } from "@tanstack/react-router"
@@ -74,6 +72,15 @@ function EditorRoute() {
 
 type SaveState = "idle" | "saving" | "saved" | "conflict" | "invalid" | "error"
 
+const SAVE_LABEL: Record<SaveState, string> = {
+  idle: "Up to date",
+  saving: "Saving…",
+  saved: "Saved",
+  conflict: "Conflict",
+  invalid: "Invalid — not saved",
+  error: "Save failed",
+}
+
 function Editor({
   siteId,
   initialDocument,
@@ -98,36 +105,30 @@ function Editor({
   })
   const [saveState, setSaveState] = useState<SaveState>("idle")
   const [mounted, setMounted] = useState(false)
+  const [publishOpen, setPublishOpen] = useState(false)
+  const [publishing, setPublishing] = useState(false)
   useEffect(() => setMounted(true), [])
+  useEffect(() => () => void (timer.current && clearTimeout(timer.current)), [])
 
-  const save = useCallback(
-    async (override = false) => {
-      if (conflictRef.current && !override) return
-      dirtyRef.current = false
-      setSaveState("saving")
-      const res = await saveSiteDraftFn({
-        data: {
-          siteId,
-          expectedDraftVersion: versionRef.current,
-          document: docRef.current,
-          override,
-        },
-      })
-      if (res.ok) {
-        versionRef.current = res.draftVersion
-        conflictRef.current = false
-        setSaveState("saved")
-      } else if (res.code === "stale") {
-        conflictRef.current = true
-        setSaveState("conflict")
-      } else if (res.code === "invalid") {
-        setSaveState("invalid")
-      } else {
-        setSaveState("error")
-      }
-    },
-    [siteId],
-  )
+  const save = useCallback(async () => {
+    if (conflictRef.current) return
+    dirtyRef.current = false
+    setSaveState("saving")
+    const res = await saveSiteDraftFn({
+      data: { siteId, expectedDraftVersion: versionRef.current, document: docRef.current },
+    })
+    if (res.ok) {
+      versionRef.current = res.draftVersion
+      setSaveState("saved")
+    } else if (res.code === "stale") {
+      conflictRef.current = true
+      setSaveState("conflict")
+    } else if (res.code === "invalid") {
+      setSaveState("invalid")
+    } else {
+      setSaveState("error")
+    }
+  }, [siteId])
 
   // Flush any pending debounced save so publish/preview act on the latest draft version.
   const flush = useCallback(async () => {
@@ -153,10 +154,28 @@ function Editor({
     [pageIndex, save],
   )
 
-  useEffect(() => () => void (timer.current && clearTimeout(timer.current)), [])
+  const preview = useCallback(async () => {
+    await flush()
+    const res = await issuePreviewFn({ data: { siteId, expectedDraftVersion: versionRef.current } })
+    if (res.ok) window.open(res.url, "_blank", "noopener")
+    else if (res.code === "stale") toast.error("Draft changed — try preview again.")
+    else toast.error("Could not create a preview link.")
+  }, [flush, siteId])
+
+  const publish = useCallback(async () => {
+    setPublishing(true)
+    await flush()
+    const res = await publishSiteFn({ data: { siteId, expectedDraftVersion: versionRef.current } })
+    setPublishing(false)
+    setPublishOpen(false)
+    if (res.ok) toast.success(`Published — publication ${res.publicationNumber}.`)
+    else if (res.code === "stale") toast.error("Draft changed — reload before publishing.")
+    else if (res.code === "invalid") toast.error("Fix validation issues before publishing.")
+    else if (res.code === "forbidden") toast.error("You do not have permission to publish.")
+    else toast.error("Publish failed.")
+  }, [flush, siteId])
 
   const config = getTemplate(docRef.current.template.id).buildConfig()
-
   if (!mounted) return <Unavailable message="Loading editor…" />
 
   return (
@@ -178,78 +197,58 @@ function Editor({
           overrides={{
             headerActions: () => (
               <Toolbar
-                siteId={siteId}
                 pages={docRef.current.pages}
                 pageIndex={pageIndex}
                 onPageChange={setPageIndex}
                 saveState={saveState}
                 canPublish={canPublish}
-                flush={flush}
-                versionRef={versionRef}
+                onPreview={() => void preview()}
+                onPublish={() => setPublishOpen(true)}
               />
             ),
           }}
         />
       </div>
+      <Dialog open={publishOpen} onOpenChange={setPublishOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Publish these changes?</DialogTitle>
+            <DialogDescription>
+              Visitors will see the current draft as soon as publication completes.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPublishOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => void publish()} disabled={publishing}>
+              {publishing ? "Publishing…" : "Publish"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Toaster />
     </div>
   )
 }
 
-const SAVE_LABEL: Record<SaveState, string> = {
-  idle: "Up to date",
-  saving: "Saving…",
-  saved: "Saved",
-  conflict: "Conflict",
-  invalid: "Invalid — not saved",
-  error: "Save failed",
-}
-
 function Toolbar({
-  siteId,
   pages,
   pageIndex,
   onPageChange,
   saveState,
   canPublish,
-  flush,
-  versionRef,
+  onPreview,
+  onPublish,
 }: {
-  siteId: string
   pages: EditorPage[]
   pageIndex: number
   onPageChange: (index: number) => void
   saveState: SaveState
   canPublish: boolean
-  flush: () => Promise<void>
-  versionRef: React.RefObject<string>
+  onPreview: () => void
+  onPublish: () => void
 }) {
-  const [publishing, setPublishing] = useState(false)
-
-  async function preview() {
-    await flush()
-    const res = await issuePreviewFn({
-      data: { siteId, expectedDraftVersion: versionRef.current },
-    })
-    if (res.ok) window.open(res.url, "_blank", "noopener")
-    else if (res.code === "stale") toast.error("Draft changed — try preview again.")
-    else toast.error("Could not create a preview link.")
-  }
-
-  async function publish() {
-    setPublishing(true)
-    await flush()
-    const res = await publishSiteFn({
-      data: { siteId, expectedDraftVersion: versionRef.current },
-    })
-    setPublishing(false)
-    if (res.ok) toast.success(`Published — publication ${res.publicationNumber}.`)
-    else if (res.code === "stale") toast.error("Draft changed — reload before publishing.")
-    else if (res.code === "invalid") toast.error("Fix validation issues before publishing.")
-    else if (res.code === "forbidden") toast.error("You do not have permission to publish.")
-    else toast.error("Publish failed.")
-  }
-
   return (
     <div className="flex items-center gap-3">
       {pages.length > 1 && (
@@ -266,25 +265,13 @@ function Toolbar({
         </select>
       )}
       <span className="text-xs text-muted-foreground">{SAVE_LABEL[saveState]}</span>
-      <Button variant="outline" size="sm" onClick={() => void preview()}>
+      <Button variant="outline" size="sm" onClick={onPreview}>
         Preview
       </Button>
       {canPublish && (
-        <Dialog>
-          <DialogTrigger render={<Button size="sm" disabled={publishing} />}>Publish</DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Publish these changes?</DialogTitle>
-              <DialogDescription>
-                Visitors will see the current draft as soon as publication completes.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
-              <DialogClose render={<Button onClick={() => void publish()} />}>Publish</DialogClose>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <Button size="sm" onClick={onPublish}>
+          Publish
+        </Button>
       )}
     </div>
   )

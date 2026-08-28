@@ -14,8 +14,13 @@ export function AuthForm({ heading, subtitle }: { heading: string; subtitle: str
     setError(null)
     const res = await authClient.signIn.magicLink({ email, callbackURL: "/" })
     setLoading(false)
-    if (res.error) setError(res.error.message ?? "Something went wrong")
-    else setSent(true)
+    if (res.error) {
+      setError(res.error.message ?? "Something went wrong")
+      return
+    }
+    setSent(true)
+    // Dev only: skip the inbox and follow the just-issued magic link automatically.
+    if (import.meta.env.DEV) window.location.href = "/api/dev/magic-link"
   }
 
   return (
@@ -30,6 +35,14 @@ export function AuthForm({ heading, subtitle }: { heading: string; subtitle: str
             We sent a magic link to <span className="font-medium">{email}</span>. In development the
             link is printed to the app's terminal.
           </p>
+          {import.meta.env.DEV ? (
+            <a
+              href="/api/dev/magic-link"
+              className="mt-3 inline-block text-sm text-brand underline"
+            >
+              Continue (dev) →
+            </a>
+          ) : null}
         </div>
       ) : (
         <form onSubmit={onSubmit} className="mt-8 flex flex-col gap-3">

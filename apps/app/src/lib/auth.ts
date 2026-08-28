@@ -4,6 +4,15 @@ import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { magicLink, organization } from "better-auth/plugins"
 
+const isProduction = process.env.NODE_ENV === "production"
+
+// Dev-only: remember the most recent magic-link URL so the login page can auto-follow it without
+// the developer copying it from the server terminal. Never populated in production.
+let lastDevMagicLink: string | null = null
+export function getLastDevMagicLink(): string | null {
+  return isProduction ? null : lastDevMagicLink
+}
+
 // Passwordless: magic link only (no password provider). Multi-tenant via the organization
 // plugin. Auth tables live in @realtr/db so migrations stay centralized.
 export const auth = betterAuth({
@@ -14,8 +23,10 @@ export const auth = betterAuth({
   plugins: [
     magicLink({
       sendMagicLink: async ({ email, url }) => {
-        // Dev: log the link. Production wires a real email provider (Resend) later.
+        // Dev: log the link and remember it for auto-follow. Production wires a real email
+        // provider (Resend) later.
         console.log(`\n🔗 Magic link for ${email}:\n   ${url}\n`)
+        if (!isProduction) lastDevMagicLink = url
       },
     }),
     organization(),
