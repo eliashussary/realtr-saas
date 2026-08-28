@@ -7,8 +7,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@realtr/ui/components/dialog"
+import { Toaster } from "@realtr/ui/components/sonner"
 import { Link, createFileRoute, redirect, useRouter } from "@tanstack/react-router"
 import { type FormEvent, type ReactNode, useState } from "react"
+import { toast } from "sonner"
 import { authClient } from "../lib/auth-client"
 import { discardDraftFn, rollbackSiteFn } from "../server/site-fns"
 import {
@@ -97,6 +99,7 @@ function Dashboard() {
           />
         ))}
       </div>
+      <Toaster />
     </main>
   )
 }
@@ -145,7 +148,7 @@ function SiteCard({
 }
 
 type PendingAction =
-  | { type: "rollback"; revisionId: string; publicationNumber: string }
+  | { type: "restore"; revisionId: string; publicationNumber: string }
   | { type: "discard" }
 
 function VersionHistory({ site, canManage }: { site: DashboardSite; canManage: boolean }) {
@@ -156,15 +159,24 @@ function VersionHistory({ site, canManage }: { site: DashboardSite; canManage: b
 
   async function confirm() {
     if (!pending) return
+    const action = pending.type
     setBusy(true)
     const res =
-      pending.type === "rollback"
+      pending.type === "restore"
         ? await rollbackSiteFn({ data: { siteId: site.id, targetRevisionId: pending.revisionId } })
         : await discardDraftFn({ data: { siteId: site.id } })
     setBusy(false)
     setPending(null)
-    if (res.ok) await router.invalidate()
-    else window.alert(pending.type === "rollback" ? "Rollback failed." : "Discard failed.")
+    if (res.ok) {
+      await router.invalidate()
+      toast.success(
+        action === "restore"
+          ? "Version restored as a new publication."
+          : "Draft changes discarded.",
+      )
+    } else {
+      toast.error(action === "restore" ? "Restore failed." : "Discard failed.")
+    }
   }
 
   return (
@@ -172,8 +184,11 @@ function VersionHistory({ site, canManage }: { site: DashboardSite; canManage: b
       <h3 className="text-sm font-semibold">Versions</h3>
       <div className="mt-1 flex items-center gap-2 text-sm">
         <span className="text-muted-foreground">
-          Draft v{site.draftVersion} · edited {new Date(site.draftUpdatedAt).toLocaleString()}
+          Draft · edited {new Date(site.draftUpdatedAt).toLocaleString()}
         </span>
+        <code className="rounded bg-secondary px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
+          {site.draftHash}
+        </code>
         {site.hasUnpublishedChanges ? (
           <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
             Unpublished changes
@@ -195,7 +210,10 @@ function VersionHistory({ site, canManage }: { site: DashboardSite; canManage: b
         <ul className="mt-2 flex flex-col gap-1">
           {site.publishedVersions.map((v) => (
             <li key={v.revisionId} className="flex items-center gap-2 text-sm">
-              <span className="font-medium">Publication {v.publicationNumber}</span>
+              <span className="font-medium">Version {v.publicationNumber}</span>
+              <code className="rounded bg-secondary px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
+                {v.hash}
+              </code>
               <span className="text-muted-foreground">
                 {new Date(v.createdAt).toLocaleString()}
               </span>
@@ -208,14 +226,14 @@ function VersionHistory({ site, canManage }: { site: DashboardSite; canManage: b
                   type="button"
                   onClick={() =>
                     setPending({
-                      type: "rollback",
+                      type: "restore",
                       revisionId: v.revisionId,
                       publicationNumber: v.publicationNumber,
                     })
                   }
                   className="text-xs text-brand hover:underline"
                 >
-                  Roll back
+                  Restore
                 </button>
               ) : null}
             </li>
@@ -227,15 +245,13 @@ function VersionHistory({ site, canManage }: { site: DashboardSite; canManage: b
       <ConfirmDialog
         open={pending !== null}
         onOpenChange={(open) => !open && setPending(null)}
-        title={
-          pending?.type === "rollback" ? "Roll back this publication?" : "Discard draft changes?"
-        }
+        title={pending?.type === "restore" ? "Restore this version?" : "Discard draft changes?"}
         description={
-          pending?.type === "rollback"
-            ? `This publishes publication ${pending.publicationNumber} again as a new revision and resets the draft to it.`
+          pending?.type === "restore"
+            ? `Version ${pending.publicationNumber} will be published again as the newest version, and your draft will be replaced with it.`
             : "This resets the draft to the current published version. Unpublished changes will be lost."
         }
-        confirmLabel={pending?.type === "rollback" ? "Roll back" : "Discard"}
+        confirmLabel={pending?.type === "restore" ? "Restore" : "Discard"}
         busy={busy}
         onConfirm={confirm}
       />

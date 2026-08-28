@@ -9,6 +9,7 @@ export interface PublishedVersion {
   publicationNumber: string
   createdAt: string
   isLive: boolean
+  hash: string
 }
 
 export interface DashboardSite {
@@ -21,6 +22,7 @@ export interface DashboardSite {
   subdomain: string
   draftVersion: string
   draftUpdatedAt: string
+  draftHash: string
   publishedVersions: PublishedVersion[]
   domains: { hostname: string; status: string; isPrimary: boolean }[]
 }
@@ -108,6 +110,7 @@ export const getDashboard = createServerFn({ method: "GET" }).handler(
           pub: siteDocumentState.publishedRevisionId,
           draftVersion: siteDocumentState.draftVersion,
           draftUpdatedAt: siteDocumentState.draftUpdatedAt,
+          hash: sql<string>`substr(md5(${siteDocumentState.draftDocument}::text), 1, 7)`,
         })
         .from(siteDocumentState)
         .where(eq(siteDocumentState.siteId, s.id))
@@ -117,6 +120,7 @@ export const getDashboard = createServerFn({ method: "GET" }).handler(
           id: siteRevision.id,
           num: siteRevision.publicationNumber,
           createdAt: siteRevision.createdAt,
+          hash: sql<string>`substr(md5(${siteRevision.document}::text), 1, 7)`,
         })
         .from(siteRevision)
         .where(
@@ -149,11 +153,13 @@ export const getDashboard = createServerFn({ method: "GET" }).handler(
         subdomain,
         draftVersion: (state?.draftVersion ?? 1n).toString(),
         draftUpdatedAt: (state?.draftUpdatedAt ?? new Date()).toISOString(),
+        draftHash: state?.hash ?? "",
         publishedVersions: revisions.map((r) => ({
           revisionId: r.id,
           publicationNumber: (r.num ?? 0n).toString(),
           createdAt: r.createdAt.toISOString(),
           isLive: r.id === state?.pub,
+          hash: r.hash,
         })),
         domains: domains.map((d) => ({
           hostname: d.hostname,
