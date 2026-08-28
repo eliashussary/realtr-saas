@@ -2,7 +2,7 @@ import { Button, Card, CardContent, CardHeader, CardTitle } from "@realtr/ui"
 import { Link, createFileRoute, redirect, useRouter } from "@tanstack/react-router"
 import { type FormEvent, useState } from "react"
 import { authClient } from "../lib/auth-client"
-import { type DashboardSite, addDomain, getDashboard } from "../server/tenant"
+import { type DashboardSite, addDomain, changeSubdomain, getDashboard } from "../server/tenant"
 
 export const Route = createFileRoute("/")({
   loader: async () => {
@@ -14,7 +14,7 @@ export const Route = createFileRoute("/")({
 })
 
 function Dashboard() {
-  const { orgName, baseHost, sites } = Route.useLoaderData()
+  const { orgName, baseHost, platformHost, sites } = Route.useLoaderData()
   const router = useRouter()
 
   async function signOut() {
@@ -36,14 +36,18 @@ function Dashboard() {
 
       <div className="mt-8 flex flex-col gap-6">
         {sites.map((site) => (
-          <SiteCard key={site.id} site={site} baseHost={baseHost} />
+          <SiteCard key={site.id} site={site} baseHost={baseHost} platformHost={platformHost} />
         ))}
       </div>
     </main>
   )
 }
 
-function SiteCard({ site, baseHost }: { site: DashboardSite; baseHost: string }) {
+function SiteCard({
+  site,
+  baseHost,
+  platformHost,
+}: { site: DashboardSite; baseHost: string; platformHost: string }) {
   return (
     <Card>
       <CardHeader>
@@ -72,7 +76,8 @@ function SiteCard({ site, baseHost }: { site: DashboardSite; baseHost: string })
         </Link>
       </CardHeader>
       <CardContent>
-        <h3 className="text-sm font-semibold">Domains</h3>
+        <SubdomainForm siteId={site.id} subdomain={site.subdomain} platformHost={platformHost} />
+        <h3 className="mt-6 text-sm font-semibold">Domains</h3>
         {site.domains.length === 0 ? (
           <p className="mt-1 text-sm text-muted-foreground">No domains yet.</p>
         ) : (
@@ -91,6 +96,50 @@ function SiteCard({ site, baseHost }: { site: DashboardSite; baseHost: string })
         <AddDomainForm siteId={site.id} baseHost={baseHost} />
       </CardContent>
     </Card>
+  )
+}
+
+function SubdomainForm({
+  siteId,
+  subdomain,
+  platformHost,
+}: { siteId: string; subdomain: string; platformHost: string }) {
+  const router = useRouter()
+  const [value, setValue] = useState(subdomain)
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault()
+    setBusy(true)
+    setError(null)
+    const res = await changeSubdomain({ data: { siteId, subdomain: value } })
+    setBusy(false)
+    if (res.ok) {
+      await router.invalidate()
+    } else if (res.code === "taken") {
+      setError("That subdomain is already taken.")
+    } else {
+      setError(res.reason ?? "Invalid subdomain.")
+    }
+  }
+
+  return (
+    <form onSubmit={onSubmit}>
+      <h3 className="text-sm font-semibold">Subdomain</h3>
+      <div className="mt-1 flex items-center gap-2">
+        <input
+          value={value}
+          onChange={(e) => setValue(e.target.value.toLowerCase())}
+          className="w-48 rounded-[var(--radius-base)] border border-input px-3 py-2 text-sm outline-none focus:border-brand"
+        />
+        <span className="text-sm text-muted-foreground">.{platformHost}</span>
+        <Button type="submit" size="sm" disabled={busy || value === subdomain}>
+          {busy ? "Saving…" : "Save"}
+        </Button>
+      </div>
+      {error ? <p className="mt-1 text-sm text-red-600">{error}</p> : null}
+    </form>
   )
 }
 

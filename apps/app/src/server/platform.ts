@@ -27,3 +27,46 @@ export function siteUrl(hostname: string): string {
 export function isServableStatus(status: string): boolean {
   return status === "active" || status === "verified"
 }
+
+/** True if a hostname is one of our platform subdomains (vs. a customer's custom domain). */
+export function isPlatformHostname(hostname: string): boolean {
+  return hostname.endsWith(`.${platformHost()}`)
+}
+
+/** Extract the subdomain label from a platform hostname (e.g. "demo.localhost" -> "demo"). */
+export function subdomainLabel(hostname: string): string {
+  const suffix = `.${platformHost()}`
+  return hostname.endsWith(suffix) ? hostname.slice(0, -suffix.length) : hostname
+}
+
+const RESERVED_SUBDOMAINS = new Set([
+  "www",
+  "app",
+  "api",
+  "admin",
+  "mail",
+  "ftp",
+  "sites",
+  "realtr",
+  "internal",
+  "preview",
+  "assets",
+  "static",
+])
+
+export type SubdomainValidation = { ok: true; label: string } | { ok: false; reason: string }
+
+/** Validate a requested subdomain label as a safe, single DNS label. */
+export function validateSubdomain(input: string): SubdomainValidation {
+  const label = input.trim().toLowerCase()
+  if (label.length < 3 || label.length > 63) {
+    return { ok: false, reason: "Use 3–63 characters." }
+  }
+  if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(label)) {
+    return { ok: false, reason: "Use lowercase letters, numbers, and hyphens." }
+  }
+  if (RESERVED_SUBDOMAINS.has(label)) {
+    return { ok: false, reason: "That subdomain is reserved." }
+  }
+  return { ok: true, label }
+}

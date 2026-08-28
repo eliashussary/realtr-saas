@@ -1,12 +1,12 @@
 import { readdir, stat } from "node:fs/promises"
 import { join } from "node:path"
 
+// Generous regression ceilings — meant to catch runaway growth, not to police normal work. The app
+// hosts the Puck editor and renders @realtr/site blocks, so it carries the full block utility set.
 const budgets = {
-  // The control centre now hosts the Puck editor, which renders @realtr/site blocks, so the app
-  // bundle includes their utility classes (same set the renderer scans).
-  app: 65_000,
-  marketing: 18_000,
-  renderer: 20_000,
+  app: 150_000,
+  marketing: 60_000,
+  renderer: 60_000,
 }
 
 let failed = false

@@ -13,7 +13,7 @@ import {
 } from "@realtr/ui/components/dialog"
 import { Toaster } from "@realtr/ui/components/sonner"
 import { type ThemeTokens, themeToCssVars } from "@realtr/ui/tokens"
-import { createFileRoute, redirect } from "@tanstack/react-router"
+import { Link, createFileRoute, redirect } from "@tanstack/react-router"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import { issuePreviewFn, loadSiteDraftFn, publishSiteFn, saveSiteDraftFn } from "../server/site-fns"
@@ -286,6 +286,9 @@ function Toolbar({
 }) {
   return (
     <div className="flex items-center gap-3">
+      <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">
+        ← Dashboard
+      </Link>
       {pages.length > 1 && (
         <select
           className="h-8 rounded-md border border-input bg-transparent px-2 text-sm"

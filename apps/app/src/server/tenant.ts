@@ -1,5 +1,8 @@
 import { createServerFn } from "@tanstack/react-start"
+import { z } from "zod"
 import { assertDomainCanBeRegistered, parseDomainInput } from "./domain-input"
+
+const subdomainInput = z.object({ siteId: z.string().uuid(), subdomain: z.string().max(63) })
 
 export interface DashboardSite {
   id: string
@@ -7,12 +10,14 @@ export interface DashboardSite {
   templateId: string
   previewUrl: string
   published: boolean
+  subdomain: string
   domains: { hostname: string; status: string; isPrimary: boolean }[]
 }
 
 export interface DashboardData {
   orgName: string
   baseHost: string
+  platformHost: string
   sites: DashboardSite[]
 }
 
@@ -51,7 +56,14 @@ export const getDashboard = createServerFn({ method: "GET" }).handler(
     if (!org) return null
 
     const { randomUUID } = await import("node:crypto")
-    const { platformHostname, siteUrl, isServableStatus } = await import("./platform")
+    const {
+      platformHost,
+      platformHostname,
+      siteUrl,
+      isServableStatus,
+      isPlatformHostname,
+      subdomainLabel,
+    } = await import("./platform")
     const sites = await db.select().from(site).where(eq(site.organizationId, org.id))
     const baseHost = process.env.RENDERER_BASE_HOST ?? "sites.realtr.app"
 
@@ -74,8 +86,10 @@ export const getDashboard = createServerFn({ method: "GET" }).handler(
         domains = await db.select().from(domain).where(eq(domain.siteId, s.id))
       }
       const servable = domains.filter((d) => isServableStatus(d.status))
-      const chosen = servable.find((d) => d.isPrimary) ?? servable[0]
+      const platform = domains.find((d) => isPlatformHostname(d.hostname))
+      const chosen = platform ?? servable.find((d) => d.isPrimary) ?? servable[0]
       const previewUrl = siteUrl(chosen ? chosen.hostname : platformHostname(org.slug ?? org.id))
+      const subdomain = subdomainLabel(platform?.hostname ?? platformHostname(org.slug ?? org.id))
       const [state] = await db
         .select({ pub: siteDocumentState.publishedRevisionId })
         .from(siteDocumentState)
@@ -87,6 +101,7 @@ export const getDashboard = createServerFn({ method: "GET" }).handler(
         templateId: s.templateId,
         previewUrl,
         published: Boolean(state?.pub),
+        subdomain,
         domains: domains.map((d) => ({
           hostname: d.hostname,
           status: d.status,
@@ -95,7 +110,7 @@ export const getDashboard = createServerFn({ method: "GET" }).handler(
       })
     }
 
-    return { orgName: org.name, baseHost, sites: result }
+    return { orgName: org.name, baseHost, platformHost: platformHost(), sites: result }
   },
 )
 
@@ -137,4 +152,67 @@ export const addDomain = createServerFn({ method: "POST" })
     if (!inserted[0]) throw new Error("Domain unavailable")
 
     return { ok: true, hostname }
+  })
+
+/** Change a site's platform subdomain, verifying the new hostname is free before committing. */
+export const changeSubdomain = createServerFn({ method: "POST" })
+  .validator((input: unknown) => subdomainInput.parse(input))
+  .handler(async ({ data }) => {
+    const { randomUUID } = await import("node:crypto")
+    const { getRequest } = await import("@tanstack/react-start/server")
+    const { auth } = await import("../lib/auth")
+    const { db, eq, domain } = await import("@realtr/db")
+    const { findAuthorizedSite, resolveOrganizationAuthorization } = await import("./authorization")
+    const { validateSubdomain, platformHost, isPlatformHostname } = await import("./platform")
+
+    const session = await auth.api.getSession({ headers: getRequest().headers })
+    const authorization = await resolveOrganizationAuthorization(session)
+    if (!authorization.ok) throw new Error("Not authorized")
+
+    const target = await findAuthorizedSite(authorization, data.siteId)
+    if ("ok" in target && !target.ok) throw new Error("Site not found")
+
+    const validation = validateSubdomain(data.subdomain)
+    if (!validation.ok)
+      return { ok: false as const, code: "invalid" as const, reason: validation.reason }
+
+    const hostname = `${validation.label}.${platformHost()}`
+    const [existing] = await db
+      .select({ siteId: domain.siteId })
+      .from(domain)
+      .where(eq(domain.hostname, hostname))
+      .limit(1)
+    if (existing && existing.siteId !== data.siteId) {
+      return { ok: false as const, code: "taken" as const }
+    }
+    if (existing && existing.siteId === data.siteId) {
+      return { ok: true as const, subdomain: validation.label, hostname }
+    }
+
+    const rows = await db.select().from(domain).where(eq(domain.siteId, data.siteId))
+    const current = rows.find((row) => isPlatformHostname(row.hostname))
+    try {
+      if (current) {
+        await db
+          .update(domain)
+          .set({ hostname, status: "active", isPrimary: true, updatedAt: new Date() })
+          .where(eq(domain.id, current.id))
+      } else {
+        await db.insert(domain).values({
+          siteId: data.siteId,
+          hostname,
+          status: "active",
+          isPrimary: true,
+          verificationToken: randomUUID(),
+        })
+      }
+    } catch (error) {
+      // Unique-violation race: someone claimed it between the check and the write.
+      if ((error as { code?: string })?.code === "23505") {
+        return { ok: false as const, code: "taken" as const }
+      }
+      throw error
+    }
+
+    return { ok: true as const, subdomain: validation.label, hostname }
   })
