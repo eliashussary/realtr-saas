@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto"
-import { member, organization, site, siteDocumentState } from "@realtr/db"
+import { domain, member, organization, site, siteDocumentState } from "@realtr/db"
 import type { SiteDocumentDatabase } from "@realtr/db/site-documents"
 import { getTemplate } from "@realtr/site"
 import {
   CURRENT_SITE_DOCUMENT_SCHEMA_VERSION,
   convertLegacySiteDocument,
 } from "@realtr/site/document"
+import { platformHostname } from "./platform"
 
 export interface ProvisionedWorkspace {
   organizationId: string
@@ -25,6 +26,7 @@ export async function provisionInitialWorkspace(
   const organizationId = randomUUID()
   const emailLocal = input.email?.split("@")[0] ?? "My"
   const orgName = `${emailLocal}'s Agency`
+  const orgSlug = `${emailLocal}-${organizationId.slice(0, 8)}`.toLowerCase()
   const template = getTemplate("modern")
   const siteName = `${orgName} Site`
 
@@ -42,7 +44,7 @@ export async function provisionInitialWorkspace(
     await tx.insert(organization).values({
       id: organizationId,
       name: orgName,
-      slug: `${emailLocal}-${organizationId.slice(0, 8)}`.toLowerCase(),
+      slug: orgSlug,
     })
     await tx.insert(member).values({
       id: randomUUID(),
@@ -68,6 +70,16 @@ export async function provisionInitialWorkspace(
       draftDocument: document as unknown as Record<string, unknown>,
       draftSchemaVersion: CURRENT_SITE_DOCUMENT_SCHEMA_VERSION,
       draftUpdatedByUserId: input.userId,
+    })
+
+    // Reserve a servable platform subdomain so the site is reachable immediately (M5 will add
+    // verification/state-machine for custom domains and production host strategy).
+    await tx.insert(domain).values({
+      siteId: createdSite.id,
+      hostname: platformHostname(orgSlug),
+      status: "active",
+      verificationToken: randomUUID(),
+      isPrimary: true,
     })
 
     return { organizationId, siteId: createdSite.id }

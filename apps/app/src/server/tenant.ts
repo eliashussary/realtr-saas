@@ -49,14 +49,32 @@ export const getDashboard = createServerFn({ method: "GET" }).handler(
     )[0]
     if (!org) return null
 
+    const { randomUUID } = await import("node:crypto")
+    const { platformHostname, siteUrl, isServableStatus } = await import("./platform")
     const sites = await db.select().from(site).where(eq(site.organizationId, org.id))
     const baseHost = process.env.RENDERER_BASE_HOST ?? "sites.realtr.app"
 
     const result: DashboardSite[] = []
     for (const s of sites) {
-      const domains = await db.select().from(domain).where(eq(domain.siteId, s.id))
-      const primary = domains.find((d) => d.isPrimary) ?? domains[0]
-      const previewUrl = primary ? `http://${primary.hostname}:3000` : "http://demo.localhost:3000"
+      let domains = await db.select().from(domain).where(eq(domain.siteId, s.id))
+      // Auto-heal sites created before platform-subdomain provisioning so the link is always a
+      // servable subdomain rather than a pending custom domain.
+      if (!domains.some((d) => isServableStatus(d.status))) {
+        await db
+          .insert(domain)
+          .values({
+            siteId: s.id,
+            hostname: platformHostname(org.slug ?? org.id),
+            status: "active",
+            verificationToken: randomUUID(),
+            isPrimary: true,
+          })
+          .onConflictDoNothing()
+        domains = await db.select().from(domain).where(eq(domain.siteId, s.id))
+      }
+      const servable = domains.filter((d) => isServableStatus(d.status))
+      const chosen = servable.find((d) => d.isPrimary) ?? servable[0]
+      const previewUrl = siteUrl(chosen ? chosen.hostname : platformHostname(org.slug ?? org.id))
       result.push({
         id: s.id,
         name: s.name,

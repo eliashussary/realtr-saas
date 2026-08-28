@@ -13,7 +13,7 @@ import {
 } from "@realtr/ui/components/dialog"
 import { Toaster } from "@realtr/ui/components/sonner"
 import { createFileRoute, redirect } from "@tanstack/react-router"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import { issuePreviewFn, loadSiteDraftFn, publishSiteFn, saveSiteDraftFn } from "../server/site-fns"
 
@@ -175,7 +175,32 @@ function Editor({
     else toast.error("Publish failed.")
   }, [flush, siteId])
 
-  const config = getTemplate(docRef.current.template.id).buildConfig()
+  // Stable identities: Puck is uncontrolled after mount, so a new config/data/overrides object on
+  // every render (e.g. each autosave setState) makes it re-sync and flicker. `key={pageIndex}`
+  // remounts Puck with the right page's seed data when the page changes.
+  const templateId = docRef.current.template.id
+  const config = useMemo(() => getTemplate(templateId).buildConfig(), [templateId])
+  const initialData = useMemo<Data>(
+    () => docRef.current.pages[pageIndex]?.puck ?? ({ content: [], root: {} } as Data),
+    [pageIndex],
+  )
+  const overrides = useMemo(
+    () => ({
+      headerActions: () => (
+        <Toolbar
+          pages={docRef.current.pages}
+          pageIndex={pageIndex}
+          onPageChange={setPageIndex}
+          saveState={saveState}
+          canPublish={canPublish}
+          onPreview={() => void preview()}
+          onPublish={() => setPublishOpen(true)}
+        />
+      ),
+    }),
+    [pageIndex, saveState, canPublish, preview],
+  )
+
   if (!mounted) return <Unavailable message="Loading editor…" />
 
   return (
@@ -192,21 +217,9 @@ function Editor({
         <Puck
           key={pageIndex}
           config={config}
-          data={docRef.current.pages[pageIndex]?.puck ?? { content: [] }}
+          data={initialData}
           onChange={onPuckChange}
-          overrides={{
-            headerActions: () => (
-              <Toolbar
-                pages={docRef.current.pages}
-                pageIndex={pageIndex}
-                onPageChange={setPageIndex}
-                saveState={saveState}
-                canPublish={canPublish}
-                onPreview={() => void preview()}
-                onPublish={() => setPublishOpen(true)}
-              />
-            ),
-          }}
+          overrides={overrides}
         />
       </div>
       <Dialog open={publishOpen} onOpenChange={setPublishOpen}>
