@@ -3,7 +3,13 @@ import { createSiteDocumentRepository } from "@realtr/db/site-documents"
 import { resolveSiteByHost } from "./tenant"
 
 export type PublishedSiteResult =
-  | { status: "ok"; siteId: string; revisionId: string; document: Record<string, unknown> }
+  | {
+      status: "ok"
+      siteId: string
+      revisionId: string
+      checksum: string
+      document: Record<string, unknown>
+    }
   | { status: "not_found" }
   | { status: "error" }
 
@@ -31,6 +37,7 @@ export async function resolvePublishedSite(host: string): Promise<PublishedSiteR
     status: "ok",
     siteId: resolved.site.id,
     revisionId: revision.id,
+    checksum: revision.documentChecksum ?? revision.id,
     document: revision.document,
   }
 }

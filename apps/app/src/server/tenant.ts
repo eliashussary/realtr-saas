@@ -40,7 +40,7 @@ export const getDashboard = createServerFn({ method: "GET" }).handler(
   async (): Promise<DashboardData | null> => {
     const { getRequest } = await import("@tanstack/react-start/server")
     const { auth } = await import("../lib/auth")
-    const { db, and, desc, eq, sql, site, domain, organization, siteDocumentState, siteRevision } =
+    const { db, and, desc, eq, site, domain, organization, siteDocumentState, siteRevision } =
       await import("@realtr/db")
     const { resolveOrganizationAuthorization } = await import("./authorization")
 
@@ -110,7 +110,7 @@ export const getDashboard = createServerFn({ method: "GET" }).handler(
           pub: siteDocumentState.publishedRevisionId,
           draftVersion: siteDocumentState.draftVersion,
           draftUpdatedAt: siteDocumentState.draftUpdatedAt,
-          hash: sql<string>`substr(md5(${siteDocumentState.draftDocument}::text), 1, 7)`,
+          checksum: siteDocumentState.draftChecksum,
         })
         .from(siteDocumentState)
         .where(eq(siteDocumentState.siteId, s.id))
@@ -120,7 +120,7 @@ export const getDashboard = createServerFn({ method: "GET" }).handler(
           id: siteRevision.id,
           num: siteRevision.publicationNumber,
           createdAt: siteRevision.createdAt,
-          hash: sql<string>`substr(md5(${siteRevision.document}::text), 1, 7)`,
+          checksum: siteRevision.documentChecksum,
         })
         .from(siteRevision)
         .where(
@@ -131,35 +131,26 @@ export const getDashboard = createServerFn({ method: "GET" }).handler(
           ),
         )
         .orderBy(desc(siteRevision.publicationNumber))
-      // Unpublished changes exist when the draft document differs from the live revision (jsonb
-      // equality is key-order-insensitive). No published revision => nothing to discard against.
-      const changed = state?.pub
-        ? (
-            await db.execute(sql`
-              select (st.draft_document is distinct from r.document) as changed
-              from site_document_state st
-              join site_revision r on r.id = st.published_revision_id
-              where st.site_id = ${s.id}
-            `)
-          ).rows[0]
-        : undefined
+      // Unpublished changes exist when the draft checksum differs from the live revision's.
+      const liveChecksum = revisions.find((r) => r.id === state?.pub)?.checksum
+      const short = (checksum: string | null) => (checksum ?? "").slice(0, 7)
       result.push({
         id: s.id,
         name: s.name,
         templateId: s.templateId,
         previewUrl,
         published: Boolean(state?.pub),
-        hasUnpublishedChanges: Boolean((changed as { changed?: boolean } | undefined)?.changed),
+        hasUnpublishedChanges: Boolean(state?.pub) && state?.checksum !== liveChecksum,
         subdomain,
         draftVersion: (state?.draftVersion ?? 1n).toString(),
         draftUpdatedAt: (state?.draftUpdatedAt ?? new Date()).toISOString(),
-        draftHash: state?.hash ?? "",
+        draftHash: short(state?.checksum ?? null),
         publishedVersions: revisions.map((r) => ({
           revisionId: r.id,
           publicationNumber: (r.num ?? 0n).toString(),
           createdAt: r.createdAt.toISOString(),
           isLive: r.id === state?.pub,
-          hash: r.hash,
+          hash: short(r.checksum),
         })),
         domains: domains.map((d) => ({
           hostname: d.hostname,

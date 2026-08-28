@@ -1,0 +1,2 @@
+ALTER TABLE "site_document_state" ADD COLUMN "draft_checksum" text GENERATED ALWAYS AS (md5(draft_document::text)) STORED;--> statement-breakpoint
+ALTER TABLE "site_revision" ADD COLUMN "document_checksum" text GENERATED ALWAYS AS (md5(document::text)) STORED;

@@ -46,7 +46,8 @@ const loadPublishedPage = createServerFn({ method: "GET" })
     }
 
     const setHeader = setResponseHeader as (name: string, value: string) => void
-    setHeader("ETag", `"${result.revisionId}"`)
+    // Content-addressed ETag: identical revisions (e.g. a restore) share it.
+    setHeader("ETag", `"${result.checksum}"`)
     setHeader("Cache-Control", "public, max-age=0, must-revalidate")
     return { status: "ok", document: result.document as Json, path, revisionId: result.revisionId }
   })

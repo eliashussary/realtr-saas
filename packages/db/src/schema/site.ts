@@ -51,6 +51,8 @@ export const siteRevision = pgTable(
     kind: text().notNull(),
     document: jsonb().$type<Record<string, unknown>>().notNull(),
     schemaVersion: integer().notNull(),
+    // Stored content hash; identical documents share it (usable for dedup and renderer ETags).
+    documentChecksum: text().generatedAlwaysAs(sql`md5(document::text)`),
     sourceDraftVersion: bigint({ mode: "bigint" }).notNull(),
     publicationNumber: bigint({ mode: "bigint" }),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
@@ -108,6 +110,7 @@ export const siteDocumentState = pgTable(
     siteId: uuid().primaryKey(),
     organizationId: text().notNull(),
     draftDocument: jsonb().$type<Record<string, unknown>>().notNull(),
+    draftChecksum: text().generatedAlwaysAs(sql`md5(draft_document::text)`),
     draftSchemaVersion: integer().notNull(),
     draftVersion: bigint({ mode: "bigint" }).notNull().default(sql`1`),
     draftUpdatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
