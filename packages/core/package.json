@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./sources": "./src/integrations/sources/index.ts",
+    "./sync": "./src/integrations/sync.ts",
     "./crm": "./src/integrations/crm/index.ts"
   },
   "scripts": {
