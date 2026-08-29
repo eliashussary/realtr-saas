@@ -166,10 +166,18 @@ export const getDashboard = createServerFn({ method: "GET" }).handler(
   },
 )
 
+export interface DashboardOrg {
+  id: string
+  name: string
+  role: string
+}
+
 export interface DashboardShell {
   orgName: string
   canManage: boolean
   isSuperAdmin: boolean
+  organizations: DashboardOrg[]
+  activeOrganizationId: string
 }
 
 /**
@@ -180,7 +188,7 @@ export const getDashboardShell = createServerFn({ method: "GET" }).handler(
   async (): Promise<DashboardShell | null> => {
     const { getRequest } = await import("@tanstack/react-start/server")
     const { auth } = await import("../lib/auth")
-    const { db, eq, organization } = await import("@realtr/db")
+    const { db, asc, eq, member, organization } = await import("@realtr/db")
     const { resolveOrganizationAuthorization } = await import("./authorization")
 
     const session = await auth.api.getSession({ headers: getRequest().headers })
@@ -198,18 +206,23 @@ export const getDashboardShell = createServerFn({ method: "GET" }).handler(
     }
     if (!authorization.ok) return null
 
-    const [org] = await db
-      .select({ name: organization.name })
-      .from(organization)
-      .where(eq(organization.id, authorization.organizationId))
-      .limit(1)
-    if (!org) return null
+    // Every org this user belongs to, for the switcher. The resolved org is the active one.
+    const organizations = await db
+      .select({ id: organization.id, name: organization.name, role: member.role })
+      .from(member)
+      .innerJoin(organization, eq(organization.id, member.organizationId))
+      .where(eq(member.userId, session.user.id))
+      .orderBy(asc(member.createdAt))
+    const active = organizations.find((o) => o.id === authorization.organizationId)
+    if (!active) return null
 
     const { isCurrentUserSuperAdmin } = await import("./super-admin")
     return {
-      orgName: org.name,
+      orgName: active.name,
       canManage: can(authorization.role, "site", "edit"),
       isSuperAdmin: await isCurrentUserSuperAdmin(),
+      organizations,
+      activeOrganizationId: authorization.organizationId,
     }
   },
 )

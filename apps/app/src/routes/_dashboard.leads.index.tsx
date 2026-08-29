@@ -21,6 +21,11 @@ export const Route = createFileRoute("/_dashboard/leads/")({
 const STATUSES = ["new", "contacted", "qualified", "won", "lost"] as const
 type Status = (typeof STATUSES)[number]
 
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
+// value→label maps so the collapsed <SelectValue> shows the label, not the raw value (base-ui).
+const STATUS_ITEMS = Object.fromEntries(STATUSES.map((s) => [s, cap(s)]))
+const FILTER_ITEMS = { all: "All statuses", ...STATUS_ITEMS }
+
 const STATUS_TONE: Record<string, string> = {
   new: "bg-brand/10 text-brand",
   contacted: "bg-secondary text-foreground",
@@ -49,6 +54,10 @@ function LeadsPage() {
   const canUpdate = data.ok ? data.canUpdate : false
   const canAssign = data.ok ? data.canAssign : false
   const members = data.ok ? data.members : []
+  const assigneeItems: Record<string, string> = {
+    [UNASSIGNED]: "Unassigned",
+    ...Object.fromEntries(members.map((m) => [m.memberId, m.label])),
+  }
 
   const filtered = useMemo(
     () => (filter === "all" ? items : items.filter((it) => it.status === filter)),
@@ -105,7 +114,11 @@ function LeadsPage() {
             {newCount > 0 ? ` ${newCount} new.` : ""}
           </p>
         </div>
-        <Select value={filter} onValueChange={(v) => setFilter(v as Status | "all")}>
+        <Select
+          value={filter}
+          onValueChange={(v) => setFilter((v as Status | "all") ?? "all")}
+          items={FILTER_ITEMS}
+        >
           <SelectTrigger className="w-40">
             <SelectValue />
           </SelectTrigger>
@@ -113,7 +126,7 @@ function LeadsPage() {
             <SelectItem value="all">All statuses</SelectItem>
             {STATUSES.map((s) => (
               <SelectItem key={s} value={s}>
-                {s.charAt(0).toUpperCase() + s.slice(1)}
+                {cap(s)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -177,8 +190,9 @@ function LeadsPage() {
                     {canUpdate ? (
                       <Select
                         value={it.status}
-                        onValueChange={(v) => changeStatus(it, v as Status)}
+                        onValueChange={(v) => v && changeStatus(it, v as Status)}
                         disabled={busyId === it.id}
+                        items={STATUS_ITEMS}
                       >
                         <SelectTrigger className="w-32">
                           <SelectValue />
@@ -186,7 +200,7 @@ function LeadsPage() {
                         <SelectContent>
                           {STATUSES.map((s) => (
                             <SelectItem key={s} value={s}>
-                              {s.charAt(0).toUpperCase() + s.slice(1)}
+                              {cap(s)}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -205,6 +219,7 @@ function LeadsPage() {
                         value={it.assignedMemberId ?? UNASSIGNED}
                         onValueChange={(v) => changeAssignee(it, v)}
                         disabled={busyId === it.id}
+                        items={assigneeItems}
                       >
                         <SelectTrigger className="w-40">
                           <SelectValue />

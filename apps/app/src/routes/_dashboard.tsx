@@ -12,10 +12,15 @@ export const Route = createFileRoute("/_dashboard")({
 })
 
 function DashboardLayout() {
-  const { orgName, isSuperAdmin } = Route.useLoaderData()
+  const { orgName, isSuperAdmin, organizations, activeOrganizationId } = Route.useLoaderData()
   return (
     <div className="flex min-h-screen">
-      <DashboardSidebar orgName={orgName} isSuperAdmin={isSuperAdmin} />
+      <DashboardSidebar
+        orgName={orgName}
+        isSuperAdmin={isSuperAdmin}
+        organizations={organizations}
+        activeOrganizationId={activeOrganizationId}
+      />
       <div className="min-w-0 flex-1">
         <Outlet />
       </div>
