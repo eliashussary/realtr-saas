@@ -10,6 +10,7 @@ import {
   organization,
   site,
   siteDocumentState,
+  sql,
 } from "@realtr/db"
 import type { SiteDocumentDatabase } from "@realtr/db/site-documents"
 import { getTemplate } from "@realtr/site"
@@ -70,13 +71,28 @@ export async function ensureWorkspace(
   database: SiteDocumentDatabase,
   input: { userId: string; email: string | null | undefined },
 ): Promise<void> {
-  if (
-    input.email &&
-    (await acceptPendingInvitation(database, { userId: input.userId, email: input.email }))
-  ) {
-    return
-  }
-  await provisionInitialWorkspace(database, input)
+  // The dashboard layout and overview loaders both call this in parallel on a user's first load.
+  // Without serialization they each pass the "no membership" check and each provision, yielding
+  // duplicate memberships (invited user) or duplicate personal orgs (new user). A per-user advisory
+  // lock held for the transaction serializes them; the re-check inside makes the loser a no-op.
+  await database.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${input.userId})::bigint)`)
+    const [existing] = await tx
+      .select({ id: member.id })
+      .from(member)
+      .where(eq(member.userId, input.userId))
+      .limit(1)
+    if (existing) return
+
+    const inner = tx as unknown as SiteDocumentDatabase
+    if (
+      input.email &&
+      (await acceptPendingInvitation(inner, { userId: input.userId, email: input.email }))
+    ) {
+      return
+    }
+    await provisionInitialWorkspace(inner, input)
+  })
 }
 
 /**
