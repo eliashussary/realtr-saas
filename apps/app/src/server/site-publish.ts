@@ -1,12 +1,13 @@
 import { db } from "@realtr/db"
 import { createSiteDocumentRepository } from "@realtr/db/site-documents"
 import { parseSiteDocument } from "@realtr/site/document"
+import { can } from "../lib/permissions"
 import type { OrganizationAuthorization } from "./authorization"
 import { type DraftValidationIssue, toIssues } from "./site-draft"
 
-/** Owners and admins may publish and roll back; editors autosave and preview only (ADR 0004). */
+/** Owners and admins may publish and roll back; agents autosave and preview only (ADR 0004). */
 export function canPublish(role: string): boolean {
-  return role === "owner" || role === "admin"
+  return can(role, "site", "publish")
 }
 
 export type PublishResult =

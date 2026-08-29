@@ -3,6 +3,7 @@ import { Toaster } from "@realtr/ui/components/sonner"
 import { Link, createFileRoute, useRouter } from "@tanstack/react-router"
 import { useState } from "react"
 import { toast } from "sonner"
+import { LocalTime } from "../components/local-time"
 import {
   type AdminIntegrationRow,
   adminListIntegrationsFn,
@@ -10,7 +11,7 @@ import {
   adminSyncFn,
 } from "../server/admin"
 
-export const Route = createFileRoute("/admin")({
+export const Route = createFileRoute("/_dashboard/admin")({
   loader: () => adminListIntegrationsFn(),
   component: AdminPage,
 })
@@ -103,13 +104,16 @@ function IntegrationRow({ row }: { row: AdminIntegrationRow }) {
         </div>
         <p className="mt-1 text-sm text-muted-foreground">
           {row.activeListings} active listings
-          {row.lastSync?.finishedAt
-            ? ` · last ${row.lastSync.mode} ${new Date(row.lastSync.finishedAt).toLocaleString()}${
-                row.lastSync.status === "failed"
-                  ? ` — failed${row.lastSync.error ? `: ${row.lastSync.error}` : ""}`
-                  : ` (+${row.lastSync.upserted} / -${row.lastSync.removed})`
-              }`
-            : " · no sync yet"}
+          {row.lastSync?.finishedAt ? (
+            <>
+              {" · "}last {row.lastSync.mode} <LocalTime iso={row.lastSync.finishedAt} />
+              {row.lastSync.status === "failed"
+                ? ` — failed${row.lastSync.error ? `: ${row.lastSync.error}` : ""}`
+                : ` (+${row.lastSync.upserted} / -${row.lastSync.removed})`}
+            </>
+          ) : (
+            " · no sync yet"
+          )}
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-2">

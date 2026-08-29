@@ -41,6 +41,7 @@ import {
   structureFromDocument,
 } from "../components/site-structure"
 import { TemplatePickerDialog } from "../components/template-picker-dialog"
+import { can } from "../lib/permissions"
 import { issuePreviewFn, loadSiteDraftFn, publishSiteFn, saveSiteDraftFn } from "../server/site-fns"
 
 interface EditorPage {
@@ -130,7 +131,7 @@ function Editor({
   initialVersion: string
   role: string
 }) {
-  const canPublish = role === "owner" || role === "admin"
+  const canPublish = can(role, "site", "publish")
   const docRef = useRef<EditorDocument>(initialDocument)
   const versionRef = useRef(initialVersion)
   const conflictRef = useRef(false)

@@ -11,7 +11,23 @@ export {
   type ActiveListingRow,
   listPublishedListings,
   getPublishedListing,
+  listFeaturedPublishedListings,
 } from "./listings"
+export {
+  type AssetRecord,
+  type UploadResult,
+  type UploadInput,
+  MAX_ASSET_BYTES,
+  storeUploadedImage,
+  deleteStoredAsset,
+  listTenantAssets,
+  getTenantAsset,
+} from "./assets/service"
+export {
+  type AgentProfileRecord,
+  listPublishedAgents,
+  getPublishedAgent,
+} from "./agents"
 export {
   sourceRegistry,
   getSource,

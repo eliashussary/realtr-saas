@@ -11,6 +11,7 @@ import {
   syncListingSourceFn,
   testListingSourceFn,
 } from "../server/listings"
+import { LocalTime } from "./local-time"
 
 interface ListingStatus {
   canManage: boolean
@@ -134,7 +135,7 @@ export function ListingsCard() {
                 {status.lastSync?.finishedAt ? (
                   <>
                     {" · "}last {status.lastSync.mode} sync{" "}
-                    {new Date(status.lastSync.finishedAt).toLocaleString()}
+                    <LocalTime iso={status.lastSync.finishedAt} />
                     {status.lastSync.status === "failed" ? (
                       <span className="text-destructive">
                         {" "}

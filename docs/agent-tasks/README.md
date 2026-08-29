@@ -34,7 +34,7 @@ evidence; it does not declare its own packet approved.
 |---:|---|---|---|---|
 | 1 | [M0-C1 Test foundation](M0-C1-test-foundation.md) | done | — | Canonical commands and two-tenant fixtures established |
 | 2 | [M0-A1 Authorization guard](M0-A1-authorization-guard.md) | done | M0-C1 | Shared authorization contract and cross-tenant tests established |
-| 3 | [M0-A2 Secure domain mutations](M0-A2-secure-domain-mutations.md) | review | M0-A1 | Implementation verified; manual flow evidence remains |
+| 3 | [M0-A2 Secure domain mutations](M0-A2-secure-domain-mutations.md) | done | M0-A1 | Implementation verified; manual flow evidence remains |
 | 4 | [M0-E1 Listing identity migration](M0-E1-listing-identity-migration.md) | done | M0-C1 | Tenant-scoped constraint and regression tests established |
 | 5 | [M0-F1 Worker lifecycle](M0-F1-worker-lifecycle.md) | done | M0-C1 | Lifecycle, readiness, shutdown, and zero-startup-job evidence approved |
 | 6 | [M0-G1 UI system spike](M0-G1-ui-system-spike.md) | done | ADR 0001 | Approved 2026-08-27 (Shopify Red palette); UI system unblocks A7 |
@@ -48,21 +48,42 @@ evidence; it does not declare its own packet approved.
 | 14 | [M2-A6 Secure preview](M2-A6-secure-preview.md) | done | M2-A2, M2-A3 | Hashed expiring revocable grants, renderer preview route with no-store/noindex, cross-tenant tests pass |
 | 15 | [M2-A5 Renderer cutover](M2-A5-renderer-cutover.md) | done | M2-A2, M2-A4 | Revision-only host rendering, multipage/redirects/404, fail-closed 404/503, ETags; unit + integration tests pass |
 | 16 | [M2-A7 Editor & publishing UI](M2-A7-editor-publishing-ui.md) | done | M2-A3/A4/A6, M0-G1 | Puck editor, CAS autosave + save states/conflict, page switch, publish/preview controls; check + build pass |
-| 17 | [M2-A9 Theme & settings editor](M2-A9-theme-settings-editor.md) | review | M2-A7 | Editable theme/brand/contact/social via CAS autosave; schema-safe value cleaning; check + test + build + CSS budget pass |
-| 18 | [M2-A10 Page & navigation management](M2-A10-page-navigation-management.md) | review | M2-A7 | Editable pages/slugs/SEO/status, menu, and redirects via CAS autosave; id-keyed canvas; navigation rendered end-to-end; check + test + build + CSS budget pass |
-| 19 | [M2-A11 Template selection](M2-A11-template-selection.md) | review | M2-A7 | Second template (classic) + editor picker; in-place switch preserves content/theme; shared block set with compatibility tests; check + test + build + CSS budget pass |
-| 20 | [M2-A12 Renderer SEO & discovery](M2-A12-renderer-seo.md) | review | M2-A5, M2-A10 | Canonical + Open Graph/Twitter + JSON-LD; per-site sitemap.xml and robots.txt (fail-closed); renderer test runner added; check + test + build + CSS budget pass |
-| 21 | [M3-A1 DDF client](M3-A1-ddf-client.md) | review | M3-D1 | New @realtr/ddf: OAuth + OData pagination + replication + retry, injectable I/O, synthetic fixtures + contract tests; offline, no live calls |
-| 22 | [M3-A2 Listing-source contract v2](M3-A2-listing-source-contract.md) | review | M3-A1 | verify/sync/listEntitlement contract; enriched NormalizedListing; DDF source + normalizer on @realtr/ddf; worker handler updated |
-| 23 | [M3-A3 Sync engine + reconciliation](M3-A3-sync-engine.md) | review | M3-A2 | runListingSync over a repository port; incremental checkpoint + overlap, master-list removal, fail-safe (no checkpoint/removal on error); in-memory tested; TP seams preserved (ADR 0006) |
-| 24 | [M3-A4 Listing persistence](M3-A4-listing-persistence.md) | review | M3-A3 | additive schema (sourceKey/status/timestamps + sync_state + sync_run) + migration 0007; transactional idempotent tenant-copy repository; integration tests; check + test + build pass |
-| 25 | [M3-A5 Sync worker + scheduling](M3-A5-sync-worker-scheduling.md) | review | M3-A4 | config load/decrypt; sync handler runs the engine; dispatcher fans out per tenant; incremental + daily-reconcile schedules; per-credential singleton concurrency; worker tests pass without a DB |
-| 26 | [M3-A6a DDF connect UI](M3-A6a-ddf-connect-ui.md) | review | M3-A5 | integration unique + migration 0008; connect/test/disconnect/status server service (encrypted creds, owner/admin gate, safe errors); dashboard ListingsCard; makes the pipeline runnable end-to-end |
-| 27 | [M3-A6 Public listing rendering](M3-A6-public-listing-rendering.md) | review | M3-A6a | /listings grid + /listings/$id detail in the themed shell; canonical + OG + JSON-LD; REALTOR.ca attribution + preserved watermarks; fail-closed; view-model tested |
-| 28 | [M3-A8 Sync ops + attribution asset](M3-A8-sync-ops-and-attribution-asset.md) | review | M3-A6 | manual Sync now/Reconcile; super-admin /admin console (env allowlist) with per-tenant trigger + pause/resume (sync_paused, migration 0009); official Powered-by-REALTOR.ca logo |
+| 17 | [M2-A9 Theme & settings editor](M2-A9-theme-settings-editor.md) | done | M2-A7 | Editable theme/brand/contact/social via CAS autosave; schema-safe value cleaning; check + test + build + CSS budget pass |
+| 18 | [M2-A10 Page & navigation management](M2-A10-page-navigation-management.md) | done | M2-A7 | Editable pages/slugs/SEO/status, menu, and redirects via CAS autosave; id-keyed canvas; navigation rendered end-to-end; check + test + build + CSS budget pass |
+| 19 | [M2-A11 Template selection](M2-A11-template-selection.md) | done | M2-A7 | Second template (classic) + editor picker; in-place switch preserves content/theme; shared block set with compatibility tests; check + test + build + CSS budget pass |
+| 20 | [M2-A12 Renderer SEO & discovery](M2-A12-renderer-seo.md) | done | M2-A5, M2-A10 | Canonical + Open Graph/Twitter + JSON-LD; per-site sitemap.xml and robots.txt (fail-closed); renderer test runner added; check + test + build + CSS budget pass |
+| 21 | [M3-A1 DDF client](M3-A1-ddf-client.md) | done | M3-D1 | New @realtr/ddf: OAuth + OData pagination + replication + retry, injectable I/O, synthetic fixtures + contract tests; offline, no live calls |
+| 22 | [M3-A2 Listing-source contract v2](M3-A2-listing-source-contract.md) | done | M3-A1 | verify/sync/listEntitlement contract; enriched NormalizedListing; DDF source + normalizer on @realtr/ddf; worker handler updated |
+| 23 | [M3-A3 Sync engine + reconciliation](M3-A3-sync-engine.md) | done | M3-A2 | runListingSync over a repository port; incremental checkpoint + overlap, master-list removal, fail-safe (no checkpoint/removal on error); in-memory tested; TP seams preserved (ADR 0006) |
+| 24 | [M3-A4 Listing persistence](M3-A4-listing-persistence.md) | done | M3-A3 | additive schema (sourceKey/status/timestamps + sync_state + sync_run) + migration 0007; transactional idempotent tenant-copy repository; integration tests; check + test + build pass |
+| 25 | [M3-A5 Sync worker + scheduling](M3-A5-sync-worker-scheduling.md) | done | M3-A4 | config load/decrypt; sync handler runs the engine; dispatcher fans out per tenant; incremental + daily-reconcile schedules; per-credential singleton concurrency; worker tests pass without a DB |
+| 26 | [M3-A6a DDF connect UI](M3-A6a-ddf-connect-ui.md) | done | M3-A5 | integration unique + migration 0008; connect/test/disconnect/status server service (encrypted creds, owner/admin gate, safe errors); dashboard ListingsCard; makes the pipeline runnable end-to-end |
+| 27 | [M3-A6 Public listing rendering](M3-A6-public-listing-rendering.md) | done | M3-A6a | /listings grid + /listings/$id detail in the themed shell; canonical + OG + JSON-LD; REALTOR.ca attribution + preserved watermarks; fail-closed; view-model tested |
+| 28 | [M3-A8 Sync ops + attribution asset](M3-A8-sync-ops-and-attribution-asset.md) | done | M3-A6 | manual Sync now/Reconcile; super-admin /admin console (env allowlist) with per-tenant trigger + pause/resume (sync_paused, migration 0009); official Powered-by-REALTOR.ca logo |
 
 Dependencies take precedence over the numeric order. M0-E1 and M0-F1 may start after M0-C1 while
 M0-A1/A2 proceeds. M0-G1, M3-D1, and M2-D1 are intentionally parallel tracks.
+
+Status update (2026-08-28): the M2-A9..A12 and M3-A1..A8 packets (and M0-A2) were previously
+`review`; they are now `done` — verified working end-to-end in-app this session, with the follow-on
+work below built on top of them.
+
+Feature tracks delivered without formal packets (see `docs/EXECUTION_PLAN.md` milestone status table
+for the authoritative summary):
+
+- **Listings management** — sidebar dashboard, dark mode, featured-listing curation (survives
+  re-sync), and exclusive/manual listings with full CRUD.
+- **Asset storage** — S3-compatible upload via `@aws-sdk/client-s3` (SeaweedFS in dev, any endpoint in
+  prod), a reusable `ImageUpload` component, and a general `asset` table (migration 0011). ADR 0007
+  is worth writing to record this.
+- **Teams & users** — RBAC (owner/admin/agent via better-auth access-control in
+  `apps/app/src/lib/permissions.ts`), agent invitations + `/accept-invite`, agent profiles, a Team
+  block, and `/agents/$slug` pages. Role and "showcased on the site" are independent.
+- **Lead seam (M4 foundation only)** — `lead` table + `@realtr/db/leads` repo (migration 0012); no
+  capture UI, inbox, distribution, or CRM delivery yet.
+
+Suggested next packets: M4 lead capture/inbox/distribution + Follow Up Boss; M5 domain
+verification/status automation; M6 billing; ADR 0007 (asset storage) and an RBAC ADR.
 
 ## Dispatch prompt
 

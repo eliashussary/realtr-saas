@@ -1,0 +1,13 @@
+{
+  "identities": [
+    {
+      "name": "realtr",
+      "credentials": [{ "accessKey": "realtr", "secretKey": "realtr-dev-secret" }],
+      "actions": ["Admin", "Read", "Write"]
+    },
+    {
+      "name": "anonymous",
+      "actions": ["Read"]
+    }
+  ]
+}

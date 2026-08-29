@@ -1,6 +1,7 @@
 import { type ListingView, toListingView } from "./listing-view"
 
 export interface ListingItem {
+  source: string
   sourceListingId: string
   data: Record<string, unknown>
 }
@@ -97,7 +98,8 @@ export function ListingsGrid({ items }: { items: ListingItem[] }) {
           ))}
         </div>
       )}
-      <ListingAttribution />
+      {/* REALTOR.ca attribution only when DDF listings are present — never on an exclusive-only page. */}
+      {items.some((item) => item.source === "ddf") ? <ListingAttribution /> : null}
     </section>
   )
 }
@@ -136,7 +138,8 @@ export function ListingDetail({ item }: { item: ListingItem }) {
           ))}
         </div>
       ) : null}
-      <ListingAttribution brokerageName={view.brokerageName} />
+      {/* Attribution only for DDF listings; exclusive listings are the realtor's own inventory. */}
+      {item.source === "ddf" ? <ListingAttribution brokerageName={view.brokerageName} /> : null}
     </article>
   )
 }

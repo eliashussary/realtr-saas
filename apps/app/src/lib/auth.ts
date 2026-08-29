@@ -3,6 +3,7 @@ import * as schema from "@realtr/db/schema"
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { magicLink, organization } from "better-auth/plugins"
+import { ac, roles } from "./permissions"
 
 const isProduction = process.env.NODE_ENV === "production"
 
@@ -29,6 +30,11 @@ export const auth = betterAuth({
         if (!isProduction) lastDevMagicLink = url
       },
     }),
-    organization(),
+    organization({
+      ac,
+      roles,
+      // The broker who creates the workspace is the owner.
+      creatorRole: "owner",
+    }),
   ],
 })

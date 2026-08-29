@@ -1,6 +1,12 @@
+import { and, eq } from "drizzle-orm"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
-import { and, eq, listing, listingSyncRun, listingSyncState } from "../src/index"
-import { createListingRepository } from "../src/listings"
+import {
+  createListingRepository,
+  listFeaturedListings,
+  listListingsForOrg,
+  setListingFeatured,
+} from "../src/listings"
+import { listing, listingSyncRun, listingSyncState } from "../src/schema"
 import {
   type TestDatabase,
   cleanTestDatabase,
@@ -116,5 +122,61 @@ describe("listing sync repository", () => {
       .from(listing)
       .where(eq(listing.organizationId, beta?.ids.organizationId ?? ""))
     expect(betaRow?.status).toBe("active")
+  })
+
+  // ADR 0006: featured is tenant curation, not feed data. A re-sync (upsert) must never reset it.
+  it("preserves featured curation across a re-upsert", async () => {
+    const [alpha] = await createTwoTenantFixture(database)
+    const organizationId = alpha?.ids.organizationId ?? ""
+    const repository = createListingRepository(database.db)
+    await repository.upsertListings(organizationId, "ddf", [normalized("A")])
+
+    const [row] = await database.db
+      .select({ id: listing.id })
+      .from(listing)
+      .where(eq(listing.organizationId, organizationId))
+    await setListingFeatured(database.db, organizationId, row?.id ?? "", true, 3)
+
+    // The feed sends the same listing again with new data.
+    await repository.upsertListings(organizationId, "ddf", [
+      { ...normalized("A"), data: { key: "A", price: 123 } },
+    ])
+
+    const [after] = await database.db
+      .select({
+        featured: listing.featured,
+        featuredRank: listing.featuredRank,
+        data: listing.data,
+      })
+      .from(listing)
+      .where(eq(listing.organizationId, organizationId))
+    expect(after?.featured).toBe(true)
+    expect(after?.featuredRank).toBe(3)
+    expect(after?.data).toMatchObject({ price: 123 })
+  })
+
+  it("setListingFeatured clears rank when un-featuring; listFeaturedListings returns only featured", async () => {
+    const [alpha] = await createTwoTenantFixture(database)
+    const organizationId = alpha?.ids.organizationId ?? ""
+    const repository = createListingRepository(database.db)
+    await repository.upsertListings(organizationId, "ddf", [normalized("A"), normalized("B")])
+
+    const rows = await listListingsForOrg(database.db, organizationId)
+    expect(rows).toHaveLength(2)
+    const a = rows.find((r) => r.sourceListingId === "ID-A") ?? rows[0]
+    await setListingFeatured(database.db, organizationId, a?.id ?? "", true, 1)
+
+    let featured = await listFeaturedListings(database.db, organizationId)
+    expect(featured.map((f) => f.sourceKey)).toEqual(["A"])
+
+    await setListingFeatured(database.db, organizationId, a?.id ?? "", false)
+    const [cleared] = await database.db
+      .select({ featured: listing.featured, featuredRank: listing.featuredRank })
+      .from(listing)
+      .where(eq(listing.id, a?.id ?? ""))
+    expect(cleared?.featured).toBe(false)
+    expect(cleared?.featuredRank).toBeNull()
+    featured = await listFeaturedListings(database.db, organizationId)
+    expect(featured).toHaveLength(0)
   })
 })

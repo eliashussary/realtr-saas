@@ -90,6 +90,11 @@ const blockSchemas = {
       .object({ id: stableIdSchema, heading: boundedText(200), body: boundedText(20_000) })
       .passthrough(),
   }),
+  Team: z.object({
+    type: z.literal("Team"),
+    // `agents` is injected at render time, never persisted — only `heading` is an editable field.
+    props: z.object({ id: stableIdSchema, heading: boundedText(200) }).passthrough(),
+  }),
   Contact: z.object({
     type: z.literal("Contact"),
     props: z
@@ -120,6 +125,7 @@ const blockSchema = z.discriminatedUnion("type", [
   blockSchemas.Hero,
   blockSchemas.ListingGrid,
   blockSchemas.About,
+  blockSchemas.Team,
   blockSchemas.Contact,
   blockSchemas.RichText,
   blockSchemas.Gallery,

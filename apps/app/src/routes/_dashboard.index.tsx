@@ -11,8 +11,7 @@ import { Toaster } from "@realtr/ui/components/sonner"
 import { Link, createFileRoute, redirect, useRouter } from "@tanstack/react-router"
 import { type FormEvent, type ReactNode, useState } from "react"
 import { toast } from "sonner"
-import { ListingsCard } from "../components/listings-card"
-import { authClient } from "../lib/auth-client"
+import { LocalTime } from "../components/local-time"
 import { discardDraftFn, rollbackSiteFn } from "../server/site-fns"
 import {
   type DashboardSite,
@@ -59,7 +58,7 @@ function ConfirmDialog({
   )
 }
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/_dashboard/")({
   loader: async () => {
     const data = await getDashboard()
     if (!data) throw redirect({ to: "/login" })
@@ -69,28 +68,13 @@ export const Route = createFileRoute("/")({
 })
 
 function Dashboard() {
-  const { orgName, baseHost, platformHost, canManage, sites } = Route.useLoaderData()
-  const router = useRouter()
-
-  async function signOut() {
-    await authClient.signOut()
-    router.navigate({ to: "/login" })
-  }
+  const { baseHost, platformHost, canManage, sites } = Route.useLoaderData()
 
   return (
     <main className="mx-auto max-w-4xl px-6 py-12">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-muted-foreground">{orgName}</p>
-          <h1 className="font-heading text-3xl font-bold">Your sites</h1>
-        </div>
-        <Button variant="outline" onClick={signOut}>
-          Sign out
-        </Button>
-      </div>
+      <h1 className="font-heading text-3xl font-bold">Your sites</h1>
 
       <div className="mt-8 flex flex-col gap-6">
-        <ListingsCard />
         {sites.map((site) => (
           <SiteCard
             key={site.id}
@@ -187,7 +171,7 @@ function VersionHistory({ site, canManage }: { site: DashboardSite; canManage: b
       {site.hasUnpublishedChanges || !hasPublished ? (
         <div className="mt-1 flex items-center gap-2 text-sm">
           <span className="text-muted-foreground">
-            Draft · edited {new Date(site.draftUpdatedAt).toLocaleString()}
+            Draft · edited <LocalTime iso={site.draftUpdatedAt} />
           </span>
           <code className="rounded bg-secondary px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
             {site.draftHash}
@@ -217,7 +201,7 @@ function VersionHistory({ site, canManage }: { site: DashboardSite; canManage: b
                 {v.hash}
               </code>
               <span className="text-muted-foreground">
-                {new Date(v.createdAt).toLocaleString()}
+                <LocalTime iso={v.createdAt} />
               </span>
               {v.isLive ? (
                 <span className="rounded-full bg-success/15 px-2 py-0.5 text-xs font-medium text-success">

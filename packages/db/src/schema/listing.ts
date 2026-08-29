@@ -1,4 +1,14 @@
-import { index, integer, jsonb, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core"
+import {
+  boolean,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  unique,
+  uuid,
+} from "drizzle-orm/pg-core"
 import { member, organization } from "./auth"
 
 // Ingested listings. Provider identity is tenant-local: sync conflict targets and lookups use
@@ -21,6 +31,10 @@ export const listing = pgTable(
     status: text().notNull().default("active"), // active | removed
     sourceModifiedAt: timestamp(), // upstream ModificationTimestamp
     lastSeenAt: timestamp(), // last time this record was present in a sync
+    // Tenant curation, owned by the realtor, not the feed. The sync upsert deliberately never writes
+    // these, so they survive every re-sync (ADR 0006: feed columns and curation columns are distinct).
+    featured: boolean().notNull().default(false),
+    featuredRank: integer(), // order among featured listings; lower first, nulls last
     data: jsonb().$type<Record<string, unknown>>().notNull().default({}),
     createdAt: timestamp().notNull().defaultNow(),
     updatedAt: timestamp().notNull().defaultNow(),

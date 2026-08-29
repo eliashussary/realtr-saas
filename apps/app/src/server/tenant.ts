@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { can } from "../lib/permissions"
 import { assertDomainCanBeRegistered, parseDomainInput } from "./domain-input"
 
 const subdomainInput = z.object({ siteId: z.string().uuid(), subdomain: z.string().max(63) })
@@ -160,8 +161,56 @@ export const getDashboard = createServerFn({ method: "GET" }).handler(
       })
     }
 
-    const canManage = authorization.role === "owner" || authorization.role === "admin"
+    const canManage = can(authorization.role, "site", "edit")
     return { orgName: org.name, baseHost, platformHost: platformHost(), canManage, sites: result }
+  },
+)
+
+export interface DashboardShell {
+  orgName: string
+  canManage: boolean
+  isSuperAdmin: boolean
+}
+
+/**
+ * Lightweight session gate + onboarding for the dashboard layout: enough to render the shell/sidebar
+ * without loading every site. Returns null when unauthenticated so the layout can redirect to login.
+ */
+export const getDashboardShell = createServerFn({ method: "GET" }).handler(
+  async (): Promise<DashboardShell | null> => {
+    const { getRequest } = await import("@tanstack/react-start/server")
+    const { auth } = await import("../lib/auth")
+    const { db, eq, organization } = await import("@realtr/db")
+    const { resolveOrganizationAuthorization } = await import("./authorization")
+
+    const session = await auth.api.getSession({ headers: getRequest().headers })
+    if (!session) return null
+
+    let authorization = await resolveOrganizationAuthorization(session)
+    if (
+      !authorization.ok &&
+      authorization.code === "forbidden" &&
+      !session.session.activeOrganizationId
+    ) {
+      const { provisionInitialWorkspace } = await import("./onboarding")
+      await provisionInitialWorkspace(db, { userId: session.user.id, email: session.user.email })
+      authorization = await resolveOrganizationAuthorization(session)
+    }
+    if (!authorization.ok) return null
+
+    const [org] = await db
+      .select({ name: organization.name })
+      .from(organization)
+      .where(eq(organization.id, authorization.organizationId))
+      .limit(1)
+    if (!org) return null
+
+    const { isCurrentUserSuperAdmin } = await import("./super-admin")
+    return {
+      orgName: org.name,
+      canManage: can(authorization.role, "site", "edit"),
+      isSuperAdmin: await isCurrentUserSuperAdmin(),
+    }
   },
 )
 
@@ -177,7 +226,9 @@ export const addDomain = createServerFn({ method: "POST" })
 
     const session = await auth.api.getSession({ headers: getRequest().headers })
     const authorization = await resolveOrganizationAuthorization(session)
-    if (!authorization.ok) throw new Error("Not authorized")
+    if (!authorization.ok || !can(authorization.role, "site", "edit")) {
+      throw new Error("Not authorized")
+    }
 
     const hostname = data.hostname
     assertDomainCanBeRegistered(
@@ -219,7 +270,9 @@ export const removeDomain = createServerFn({ method: "POST" })
 
     const session = await auth.api.getSession({ headers: getRequest().headers })
     const authorization = await resolveOrganizationAuthorization(session)
-    if (!authorization.ok) throw new Error("Not authorized")
+    if (!authorization.ok || !can(authorization.role, "site", "edit")) {
+      throw new Error("Not authorized")
+    }
 
     const target = await findAuthorizedSite(authorization, data.siteId)
     if ("ok" in target && !target.ok) throw new Error("Site not found")
@@ -247,7 +300,9 @@ export const changeSubdomain = createServerFn({ method: "POST" })
 
     const session = await auth.api.getSession({ headers: getRequest().headers })
     const authorization = await resolveOrganizationAuthorization(session)
-    if (!authorization.ok) throw new Error("Not authorized")
+    if (!authorization.ok || !can(authorization.role, "site", "edit")) {
+      throw new Error("Not authorized")
+    }
 
     const target = await findAuthorizedSite(authorization, data.siteId)
     if ("ok" in target && !target.ok) throw new Error("Site not found")

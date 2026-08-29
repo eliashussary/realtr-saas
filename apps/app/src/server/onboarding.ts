@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto"
-import { domain, member, organization, site, siteDocumentState } from "@realtr/db"
+import { domain, agentProfile, member, organization, site, siteDocumentState } from "@realtr/db"
 import type { SiteDocumentDatabase } from "@realtr/db/site-documents"
 import { getTemplate } from "@realtr/site"
 import {
@@ -46,11 +46,21 @@ export async function provisionInitialWorkspace(
       name: orgName,
       slug: orgSlug,
     })
+    const ownerMemberId = randomUUID()
     await tx.insert(member).values({
-      id: randomUUID(),
+      id: ownerMemberId,
       organizationId,
       userId: input.userId,
       role: "owner",
+    })
+    // Seed the owner a visible agent profile so a solo realtor is showcased on their site by default.
+    // Being showcased is a profile, independent of the owner role — they can hide it anytime.
+    await tx.insert(agentProfile).values({
+      organizationId,
+      memberId: ownerMemberId,
+      slug: "me",
+      displayName: emailLocal,
+      visible: true,
     })
     const [createdSite] = await tx
       .insert(site)

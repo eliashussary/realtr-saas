@@ -11,12 +11,17 @@ type Json = string | number | boolean | null | Json[] | { [key: string]: Json }
 // Server-fn payloads must be serializable, so listing data crosses as `Json` and is cast back to a
 // plain record at the render boundary.
 interface SerializedListing {
+  source: string
   sourceListingId: string
   data: Json
 }
 
 function toItem(listing: SerializedListing): ListingItem {
-  return { sourceListingId: listing.sourceListingId, data: listing.data as Record<string, unknown> }
+  return {
+    source: listing.source,
+    sourceListingId: listing.sourceListingId,
+    data: listing.data as Record<string, unknown>,
+  }
 }
 
 export type ListingsGridData =
@@ -50,6 +55,7 @@ const loadListingsGrid = createServerFn({ method: "GET" }).handler(
     }
     const rows = await listPublishedListings(site.organizationId, { limit: 60 })
     const items: SerializedListing[] = rows.map((row) => ({
+      source: row.source,
       sourceListingId: row.sourceListingId,
       data: row.data as unknown as Json,
     }))
@@ -77,7 +83,11 @@ const loadListingDetail = createServerFn({ method: "GET" })
     return {
       status: "ok",
       document: site.document as Json,
-      item: { sourceListingId: row.sourceListingId, data: row.data as unknown as Json },
+      item: {
+        source: row.source,
+        sourceListingId: row.sourceListingId,
+        data: row.data as unknown as Json,
+      },
       origin,
     }
   })

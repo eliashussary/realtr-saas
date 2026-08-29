@@ -22,3 +22,6 @@ caddy_config/
 # misc
 .DS_Store
 *.log
+
+# uploaded assets (local dev store)
+.s3-dev/

@@ -5,6 +5,7 @@ import { gallery } from "./gallery"
 import { hero } from "./hero"
 import { listingGrid } from "./listing-grid"
 import { richText } from "./rich-text"
+import { team } from "./team"
 
 // Puck component props are heterogeneous per block; `any` is the pragmatic type for the mixed map.
 // biome-ignore lint/suspicious/noExplicitAny: heterogeneous Puck component configs
@@ -15,6 +16,7 @@ export const coreBlocks = {
   Hero: hero,
   ListingGrid: listingGrid,
   About: about,
+  Team: team,
   Contact: contact,
   RichText: richText,
   Gallery: gallery,
@@ -42,4 +44,6 @@ export function composeConfig(opts: ComposeOptions = {}): Config {
   return { components, root: opts.root, categories: opts.categories }
 }
 
-export { hero, listingGrid, about, contact, richText, gallery }
+export { hero, listingGrid, about, team, contact, richText, gallery }
+export type { FeaturedListing, ListingGridProps } from "./listing-grid"
+export type { TeamAgent, TeamProps } from "./team"

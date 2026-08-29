@@ -1,4 +1,5 @@
 import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router"
+import { ThemeProvider } from "next-themes"
 import appCss from "../styles.css?url"
 
 export const Route = createRootRoute({
@@ -15,12 +16,21 @@ export const Route = createRootRoute({
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="realtr-app">
+    // suppressHydrationWarning: next-themes sets the theme class on <html> before hydration, so the
+    // server/client class attribute legitimately differs on first paint.
+    <html lang="en" className="realtr-app" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
       <body className="bg-background text-foreground">
-        {children}
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          {children}
+        </ThemeProvider>
         <Scripts />
       </body>
     </html>

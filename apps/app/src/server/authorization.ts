@@ -55,6 +55,14 @@ export async function resolveOrganizationAuthorization(
   }
 }
 
+/** Resolve the current request's organization authorization from its session. */
+export async function currentOrganizationAuthorization(): Promise<OrganizationAuthorizationResult> {
+  const { getRequest } = await import("@tanstack/react-start/server")
+  const { auth } = await import("../lib/auth")
+  const session = await auth.api.getSession({ headers: getRequest().headers })
+  return resolveOrganizationAuthorization(session)
+}
+
 /** A target organization is a constraint to verify, never authorization proof. */
 export function authorizeOrganizationTarget(
   authorization: OrganizationAuthorization,

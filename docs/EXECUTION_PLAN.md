@@ -1,7 +1,16 @@
 # Realtr execution plan
 
-Status: initial plan based on the repository as of 2026-08-27. Update this document as decisions are
-made and slices land; it is the coordination source for dispatched agents, not a promise of dates.
+Status: updated 2026-08-28. Update this document as decisions are made and slices land; it is the
+coordination source for dispatched agents, not a promise of dates.
+
+Progress snapshot (2026-08-28): M0–M3 are implemented and verified in-app; the site editor, DDF
+listing sync, and public listing pages work end-to-end. Built on top since: a sidebar dashboard,
+featured listings, **exclusive (manual) listings** with **S3-compatible asset upload** (SeaweedFS in
+dev), **dark mode**, and **teams & users** — RBAC (owner/admin/agent via better-auth access-control),
+agent invitations, and agent profiles showcased on the site. The **lead** table + repository exist as
+the M4 seam (no capture UI yet). Not started: M4 lead capture/inbox/CRM delivery, M5 domain
+verification automation, M6 billing, M7 operations/launch hardening. See the milestone status table
+below.
 
 ## Product outcome
 
@@ -12,26 +21,31 @@ sync, and subscription health without directly editing production data.
 
 ## Current baseline
 
-Already present:
+Delivered and verified in-app:
 
-- pnpm/TypeScript monorepo with control centre, tenant renderer, marketing app, and worker
-- passwordless Better Auth plus organization tables and first-login site creation
-- host-to-domain-to-site resolution and a Caddy on-demand TLS check endpoint
-- one `modern` template, shared Puck block contracts, theme tokens, and seeded demo content
-- provider registries for listing sources and CRMs
-- initial Drizzle schema for sites, domains, integrations, and listings
-- Docker development and single-host production topology
+- pnpm/TypeScript monorepo (control centre, tenant renderer, marketing, worker) with a test harness
+  (unit + disposable-PostgreSQL integration) and CI quality gates
+- passwordless Better Auth with organization/member RBAC (owner/admin/agent) via access-control, a
+  reusable authorization guard, agent invitations, and audit events on key mutations
+- sidebar control-centre dashboard (shadcn/ui, dark mode) with onboarding that provisions a draft site
+- Puck site editor with versioned draft/publish, preview tokens, rollback, theme/settings and
+  page/navigation editors, a second template, and renderer SEO (canonical/OG/JSON-LD/sitemap/robots)
+- DDF listing sync (typed client, incremental + reconcile, encrypted per-tenant config, scheduler +
+  manual sync, super-admin console) persisting a tenant-scoped canonical listing model
+- public listing grid/detail with REALTOR.ca attribution (source-aware) and preserved watermarks
+- listings management: featured curation (survives re-sync), exclusive/manual listings with full CRUD
+- agent profiles showcased via a Team block + `/agents/$slug` pages
+- S3-compatible asset storage (`@aws-sdk/client-s3`; SeaweedFS in dev, any endpoint in prod)
+- host→domain→site resolution, Caddy on-demand TLS check, platform subdomains
+- Docker development (Postgres + SeaweedFS) and single-host production topology
 
-Prototype gaps that affect sequencing:
+Remaining gaps that affect sequencing:
 
-- domain creation is not yet tenant-authorized; broader authorization policy and tests are absent
-- DDF and Follow Up Boss providers are stubs; the worker neither loads encrypted configuration nor
-  persists normalized listings
-- the listing schema is a JSON placeholder and its current upstream uniqueness is not tenant-scoped
-- there is no site/page editor, durable preview/publish workflow, template gallery, or theme UI
-- domain verification/status automation, platform subdomains, email delivery, billing, lead storage,
-  product analytics, and internal operations tooling are not implemented
-- there is no automated test harness or CI quality gate
+- lead capture forms, lead inbox, distribution rules, and deal-flow pipeline are unbuilt (only the
+  `lead` table + repository seam exist); Follow Up Boss CRM provider is still a stub
+- domain verification/status automation and the production host/subdomain strategy are incomplete
+- billing/entitlements, product analytics, and production magic-link email are not implemented
+- multiple sites per organization and better-auth sub-teams are deferred (schema seams exist)
 
 ## Delivery principles
 
@@ -61,6 +75,20 @@ M0 Safety + delivery foundation
 M2, M5, and the DDF discovery portion of M3 can proceed in parallel after M0/M1 contracts are
 stable. Billing can begin earlier at the schema/provider boundary, but enforcement depends on the
 product capabilities it gates.
+
+## Milestone status (2026-08-28)
+
+| Milestone | Status | Notes |
+|---|---|---|
+| M0 Safety + delivery foundation | done | authz guard, validation, test harness, CI, tenant-scoped listing identity, worker lifecycle, UI system |
+| M1 Account + onboarding | done | passwordless auth, onboarding→draft site, RBAC (owner/admin/agent), member profiles, invitations, audit events. Remaining: production magic-link email; org switcher (single-org today) |
+| M2 Site builder + publishing | done | pages/nav/SEO, draft/publish + rollback, Puck editor, theme/settings editor, 2 templates, sitemap/robots/JSON-LD |
+| M3 Listings + DDF | done | client, sync engine, persistence, scheduling, connect UI, public rendering, ops console. Post-MVP **M3-B Technology-Provider** track (deduped feed, per-`DestinationId` entitlement) still open (ADR 0006) |
+| M3.5 Listings mgmt + teams (this session) | done | sidebar dashboard, dark mode, featured listings, exclusive listings + S3 asset upload, RBAC/invitations/agent profiles + Team block |
+| M4 Leads + CRM | seam only | `lead` table + repo shipped (assignedMemberId/listingId). Capture forms, inbox, distribution, deal-flow pipeline, and Follow Up Boss implementation are unbuilt |
+| M5 Domains | partial | resolution, on-demand TLS, platform subdomains, secured add/remove. Verification/status automation + production host strategy remain |
+| M6 Billing + entitlements | not started | |
+| M7 Operations + launch | partial | super-admin sync console exists; broader reliability/launch hardening remains |
 
 ## Milestones
 
@@ -187,6 +215,12 @@ Acceptance criteria:
 
 Goal: every legitimate inquiry is retained and, when configured, delivered to the realtor's CRM.
 
+Status (2026-08-28): the **seam is in place** — a tenant-scoped `lead` table (migration 0012) with
+`assignedMemberId`, `listingId`, `siteId`, status, and consent, plus a `@realtr/db/leads` repository
+(`createLead` / `listLeadsForOrg` / `assignLead`). The teams/RBAC + agent-profile model (needed for
+assignment and per-agent inboxes) is done. The work packages below are all still to build; they are
+now purely additive on top of the seam.
+
 Work packages:
 
 - tenant-scoped lead model with consent/source/page/listing context, retention rules, and audit trail
@@ -269,6 +303,9 @@ Acceptance criteria:
 
 ## First dispatch queue
 
+Historical (this queue is complete as of 2026-08-28 — see the Milestone status table above and
+`docs/agent-tasks/README.md` for current state and suggested next packets). Kept for provenance.
+
 These are deliberately small, reviewable packages. Dispatch them in order unless their dependency
 is already merged.
 
@@ -309,20 +346,24 @@ same migration, manifest, generated route tree, or shared registry at once.
 Use short architecture decision records under `docs/decisions/` for choices that constrain several
 workstreams. The first needed decisions are:
 
-- test runner and PostgreSQL integration-test lifecycle
-- authorization API and active-organization semantics
+- test runner and PostgreSQL integration-test lifecycle — decided (implemented)
+- authorization API and active-organization semantics — decided; RBAC roles owner/admin/agent via
+  better-auth access-control (`apps/app/src/lib/permissions.ts`). A member's role is independent of
+  whether they are showcased on the site (a visible agent profile). Not yet an ADR — worth recording.
 - draft/published site document and revision storage
-  ([ADR 0004](decisions/0004-draft-publish-site-documents.md), proposed)
-- canonical listing model after DDF discovery
+  ([ADR 0004](decisions/0004-draft-publish-site-documents.md), accepted, implemented)
+- canonical listing model after DDF discovery — decided (implemented; tenant-copy behind a repo port)
 - DDF credential model for MVP: tenant-supplied API keys
-  ([ADR 0006](decisions/0006-ddf-credential-model-mvp.md), accepted)
-- platform subdomain and production host strategy
-- plan/entitlement model and billing lifecycle
-- asset upload/storage/image transformation provider
-- UI system and visual quality workflow (proposal: `docs/decisions/0001-ui-system.md`)
+  ([ADR 0006](decisions/0006-ddf-credential-model-mvp.md), accepted, implemented)
+- asset upload/storage/image transformation provider — decided: S3-compatible via `@aws-sdk/client-s3`
+  (SeaweedFS in dev, any endpoint in prod), served directly from the store; manual-listing/profile
+  images only (DDF media stays on source URLs). Not yet an ADR — worth recording (proposed ADR 0007).
+- platform subdomain and production host strategy — partial; needs an ADR
+- plan/entitlement model and billing lifecycle — open
+- UI system and visual quality workflow (proposal: `docs/decisions/0001-ui-system.md`) — accepted
 - user-supplied templates: tiered approach, code templates deferred
   ([ADR 0005](decisions/0005-user-supplied-templates.md), accepted)
-- deployment target beyond the current single-host Docker topology
+- deployment target beyond the current single-host Docker topology — open
 
 An ADR should state context, decision, alternatives considered, consequences, and follow-up work.
 Do not use an ADR to postpone a local, easily reversible implementation detail.
