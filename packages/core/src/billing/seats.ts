@@ -73,6 +73,7 @@ export async function syncSeatsForOrg(organizationId: string): Promise<void> {
       quantity,
     })
   } catch (error) {
-    console.error("syncSeatsForOrg failed", { organizationId, error })
+    const { reportError } = await import("../log")
+    reportError(error, { component: "billing", action: "syncSeatsForOrg", organizationId })
   }
 }

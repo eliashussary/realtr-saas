@@ -101,10 +101,11 @@ connect-integration, invite-member, site serving, and lead capture; Team seat ru
 sync), and A6 (super-admin billing reconciliation + extend-grace) have all landed.
 
 M7 (operations, reliability, launch) is in progress: **M7-A1** (admin console — tenant health board +
-platform audit log) and **M7-A2** (per-tenant drill-down levers — domain re-verify/detach, retry
-failed lead deliveries, pause/resume sync, all audited) have landed. Next packets: **M7-A3** structured
-logging + request/job correlation + error reporting; then A4 backups + restore/rollback runbooks; A5
-security review; A6 a11y/perf/load; A7 privacy/terms + data-export/deletion + DDF launch approval.
+platform audit log), **M7-A2** (per-tenant drill-down levers — domain re-verify/detach, retry failed
+lead deliveries, pause/resume sync, all audited), and **M7-A3** (structured logging `@realtr/core/log`,
+per-job correlation ids + start/finish/error events, single `reportError` seam on worker + billing
+paths) have landed. Next packets: **M7-A4** backups + restore/rollback runbooks + secret rotation; then
+A5 security review; A6 a11y/perf/load; A7 privacy/terms + data-export/deletion + DDF launch approval.
 
 Earlier framing (still valid for A3–A7): **M7** (operations, reliability, launch) —
 structured logs / request+job correlation / error reporting / dashboards; backup+restore and

@@ -65,7 +65,8 @@ export const Route = createFileRoute("/api/billing/webhook")({
           })
         } catch (error) {
           // Unexpected failure (DB down, Stripe fetch error): 500 so Stripe retries later.
-          console.error("billing webhook failed", error)
+          const { reportError } = await import("@realtr/core/log")
+          reportError(error, { component: "billing", action: "webhook", eventType: event.type })
           return new Response("webhook processing failed", { status: 500 })
         }
       },

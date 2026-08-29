@@ -1,3 +1,4 @@
+import { logger, reportError } from "@realtr/core/log"
 import { parseWorkerEnvironment } from "./env"
 import { createWorkerRuntime } from "./runtime"
 
@@ -7,7 +8,7 @@ async function main(): Promise<void> {
   const shutdown = async (signal: NodeJS.Signals) => {
     if (shuttingDown) return
     shuttingDown = true
-    console.log(`[worker] received ${signal}; shutting down`)
+    logger.info("worker.shutdown", { signal })
     await runtime.stop()
   }
   process.once("SIGTERM", () => void shutdown("SIGTERM"))
@@ -16,7 +17,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  const message = error instanceof Error ? error.message : "Unknown worker startup error"
-  console.error(`[worker] fatal: ${message}`)
+  reportError(error, { component: "worker", phase: "startup" })
   process.exitCode = 1
 })

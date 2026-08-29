@@ -8,6 +8,7 @@ import {
   runGraceSweep,
   runLeadDelivery,
 } from "@realtr/core"
+import { type Logger, logger, newCorrelationId, reportError } from "@realtr/core/log"
 import { db } from "@realtr/db"
 import { createGraceSweepRepository } from "@realtr/db/billing"
 import { createDomainRepository, listDomainsAwaitingVerification } from "@realtr/db/domains"
@@ -45,6 +46,26 @@ export interface WorkerRuntime {
   stop(): Promise<void>
 }
 
+/**
+ * Wrap a job run with a correlation id and structured start/finish/error logs, so one job's lines can
+ * be followed end to end and every failure reaches the error-reporting seam. Rethrows so pg-boss
+ * still applies its retry policy.
+ */
+async function withJob<T>(queue: string, run: (jobLog: Logger) => Promise<T>): Promise<T> {
+  const correlationId = newCorrelationId()
+  const jobLog = logger.child({ queue, correlationId })
+  const startedAt = Date.now()
+  jobLog.info("job.start")
+  try {
+    const result = await run(jobLog)
+    jobLog.info("job.finish", { ms: Date.now() - startedAt })
+    return result
+  } catch (error) {
+    reportError(error, { queue, correlationId, ms: Date.now() - startedAt })
+    throw error
+  }
+}
+
 function listen(server: Server, port: number): Promise<void> {
   return new Promise((resolve, reject) => {
     server.once("error", reject)
@@ -77,9 +98,8 @@ export function createWorkerRuntime(environment: WorkerEnvironment): WorkerRunti
     }
     response.writeHead(404).end()
   })
-  boss.on("error", (error) => console.error("[worker] pg-boss error", error.message))
+  boss.on("error", (error) => reportError(error, { component: "pg-boss" }))
 
-  const log = (message: string) => console.log(message)
   const repository = createListingRepository(db)
 
   return {
@@ -99,18 +119,20 @@ export function createWorkerRuntime(environment: WorkerEnvironment): WorkerRunti
 
       await boss.work<unknown>(LISTINGS_SYNC_QUEUE, async (jobs) => {
         for (const job of jobs) {
-          await handleListingsSync(job.data, {
-            getSource,
-            loadConfig: loadListingSourceConfig,
-            repository,
-            log,
-          })
+          await withJob(LISTINGS_SYNC_QUEUE, (jobLog) =>
+            handleListingsSync(job.data, {
+              getSource,
+              loadConfig: loadListingSourceConfig,
+              repository,
+              log: (m) => jobLog.info(m),
+            }),
+          )
         }
       })
 
       // Fan out to one sync job per connected tenant. singletonKey keeps at most one queued sync per
       // (org, provider) so incremental and reconcile never pile up or run concurrently per credential.
-      const dispatchDependencies = {
+      const dispatchDeps = (jobLog: Logger) => ({
         listConnected: listConnectedListingSources,
         enqueue: async (job: {
           organizationId: string
@@ -123,13 +145,18 @@ export function createWorkerRuntime(environment: WorkerEnvironment): WorkerRunti
             { singletonKey: `${job.organizationId}:${job.provider}` },
           )
         },
-        log,
+        log: (m: string) => jobLog.info(m),
+      })
+      const dispatch = (queue: string) => async (jobs: Array<{ data: unknown }>) => {
+        for (const job of jobs) {
+          await withJob(queue, (jobLog) => handleListingsDispatch(job.data, dispatchDeps(jobLog)))
+        }
       }
-      const dispatch = async (jobs: Array<{ data: unknown }>) => {
-        for (const job of jobs) await handleListingsDispatch(job.data, dispatchDependencies)
-      }
-      await boss.work<unknown>(LISTINGS_DISPATCH_QUEUE, dispatch)
-      await boss.work<unknown>(LISTINGS_DISPATCH_RECONCILE_QUEUE, dispatch)
+      await boss.work<unknown>(LISTINGS_DISPATCH_QUEUE, dispatch(LISTINGS_DISPATCH_QUEUE))
+      await boss.work<unknown>(
+        LISTINGS_DISPATCH_RECONCILE_QUEUE,
+        dispatch(LISTINGS_DISPATCH_RECONCILE_QUEUE),
+      )
 
       await boss.schedule(LISTINGS_DISPATCH_QUEUE, INCREMENTAL_CRON, {
         version: 1,
@@ -147,7 +174,9 @@ export function createWorkerRuntime(environment: WorkerEnvironment): WorkerRunti
         retryDelay: 30,
       })
       await boss.work<unknown>(LEAD_DELIVERY_QUEUE, async () => {
-        await runLeadDelivery({ log })
+        await withJob(LEAD_DELIVERY_QUEUE, (jobLog) =>
+          runLeadDelivery({ log: (m) => jobLog.info(m) }),
+        )
       })
       await boss.schedule(LEAD_DELIVERY_QUEUE, LEAD_DELIVERY_CRON, { version: 1 })
 
@@ -162,31 +191,35 @@ export function createWorkerRuntime(environment: WorkerEnvironment): WorkerRunti
       await boss.createQueue(DOMAINS_DISPATCH_QUEUE, { name: DOMAINS_DISPATCH_QUEUE })
       await boss.work<unknown>(DOMAINS_VERIFY_QUEUE, async (jobs) => {
         for (const job of jobs) {
-          await handleDomainsVerify(job.data, {
-            verify: (domainId) =>
-              runDomainVerification({
-                domainId,
-                expectedCnameTarget: rendererBaseHost,
-                resolver: nodeDnsResolver,
-                repository: domainRepository,
-              }),
-            log,
-          })
+          await withJob(DOMAINS_VERIFY_QUEUE, (jobLog) =>
+            handleDomainsVerify(job.data, {
+              verify: (domainId) =>
+                runDomainVerification({
+                  domainId,
+                  expectedCnameTarget: rendererBaseHost,
+                  resolver: nodeDnsResolver,
+                  repository: domainRepository,
+                }),
+              log: (m) => jobLog.info(m),
+            }),
+          )
         }
       })
       await boss.work<unknown>(DOMAINS_DISPATCH_QUEUE, async (jobs) => {
         for (const job of jobs) {
-          await handleDomainsDispatch(job.data, {
-            listAwaiting: () => listDomainsAwaitingVerification(db),
-            enqueue: async (domainId) => {
-              await boss.send(
-                DOMAINS_VERIFY_QUEUE,
-                { version: 1, domainId },
-                { singletonKey: domainId },
-              )
-            },
-            log,
-          })
+          await withJob(DOMAINS_DISPATCH_QUEUE, (jobLog) =>
+            handleDomainsDispatch(job.data, {
+              listAwaiting: () => listDomainsAwaitingVerification(db),
+              enqueue: async (domainId) => {
+                await boss.send(
+                  DOMAINS_VERIFY_QUEUE,
+                  { version: 1, domainId },
+                  { singletonKey: domainId },
+                )
+              },
+              log: (m) => jobLog.info(m),
+            }),
+          )
         }
       })
       await boss.schedule(DOMAINS_DISPATCH_QUEUE, DOMAINS_DISPATCH_CRON, { version: 1 })
@@ -196,10 +229,12 @@ export function createWorkerRuntime(environment: WorkerEnvironment): WorkerRunti
       await boss.createQueue(BILLING_SWEEP_QUEUE, { name: BILLING_SWEEP_QUEUE })
       await boss.work<unknown>(BILLING_SWEEP_QUEUE, async (jobs) => {
         for (const job of jobs) {
-          await handleBillingSweep(job.data, {
-            sweep: () => runGraceSweep(graceSweepRepository),
-            log,
-          })
+          await withJob(BILLING_SWEEP_QUEUE, (jobLog) =>
+            handleBillingSweep(job.data, {
+              sweep: () => runGraceSweep(graceSweepRepository),
+              log: (m) => jobLog.info(m),
+            }),
+          )
         }
       })
       await boss.schedule(BILLING_SWEEP_QUEUE, BILLING_SWEEP_CRON, { version: 1 })
@@ -207,7 +242,7 @@ export function createWorkerRuntime(environment: WorkerEnvironment): WorkerRunti
       await listen(healthServer, environment.healthPort)
       started = true
       ready = true
-      console.log(`[worker] ready; health on :${environment.healthPort}`)
+      logger.info("worker.ready", { healthPort: environment.healthPort })
     },
     async stop() {
       if (!started) return

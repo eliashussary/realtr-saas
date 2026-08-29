@@ -104,7 +104,8 @@ export const startCheckoutFn = createServerFn({ method: "POST" })
       return { ok: true as const, url: session.url }
     } catch (error) {
       // Never leak Stripe internals to the client.
-      console.error("startCheckout failed", error)
+      const { reportError } = await import("@realtr/core/log")
+      reportError(error, { component: "billing", action: "startCheckout" })
       return { ok: false as const, code: "checkout_failed" as const }
     }
   })
@@ -137,7 +138,8 @@ export const openBillingPortalFn = createServerFn({ method: "POST" }).handler(as
     })
     return { ok: true as const, url }
   } catch (error) {
-    console.error("openBillingPortal failed", error)
+    const { reportError } = await import("@realtr/core/log")
+    reportError(error, { component: "billing", action: "openBillingPortal" })
     return { ok: false as const, code: "portal_failed" as const }
   }
 })
