@@ -104,8 +104,10 @@ M7 (operations, reliability, launch) is in progress: **M7-A1** (admin console �
 platform audit log), **M7-A2** (per-tenant drill-down levers — domain re-verify/detach, retry failed
 lead deliveries, pause/resume sync, all audited), and **M7-A3** (structured logging `@realtr/core/log`,
 per-job correlation ids + start/finish/error events, single `reportError` seam on worker + billing
-paths) have landed. Next packets: **M7-A4** backups + restore/rollback runbooks + secret rotation; then
-A5 security review; A6 a11y/perf/load; A7 privacy/terms + data-export/deletion + DDF launch approval.
+paths), and **M7-A5** (pre-launch security review — `docs/security-review-2026-08.md`; fixed
+magic-link-in-prod-logs + hardcoded auth-secret + CSRF trustedOrigins, tracked the rest) have landed.
+Next packet: **M7-A7** (privacy/terms + per-tenant data export & deletion + DDF launch approval — the
+last real feature work). Then A6 a11y/perf/load, and A4 backups + runbooks (docs, deferred to end).
 
 Earlier framing (still valid for A3–A7): **M7** (operations, reliability, launch) —
 structured logs / request+job correlation / error reporting / dashboards; backup+restore and
