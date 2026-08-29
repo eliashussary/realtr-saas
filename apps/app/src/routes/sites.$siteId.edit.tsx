@@ -15,13 +15,7 @@ import {
 import { Toaster } from "@realtr/ui/components/sonner"
 import { type ThemeTokens, themeToCssVars } from "@realtr/ui/tokens"
 import { Link, createFileRoute, redirect } from "@tanstack/react-router"
-import {
-  ChevronLeftIcon,
-  LayoutTemplateIcon,
-  Redo2Icon,
-  Settings2Icon,
-  Undo2Icon,
-} from "lucide-react"
+import { ChevronLeftIcon, Redo2Icon, Undo2Icon } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import { PagesNavPanel } from "../components/pages-nav-panel"
@@ -30,14 +24,14 @@ import {
   brandingFromDocument,
   cleanBrandingInput,
 } from "../components/site-settings"
-import { SiteSettingsDialog } from "../components/site-settings-dialog"
+import { SiteSettingsPanel } from "../components/site-settings-panel"
 import {
   type StructureInput,
   cleanStructure,
   isHomePage,
   structureFromDocument,
 } from "../components/site-structure"
-import { TemplatePickerDialog } from "../components/template-picker-dialog"
+import { TemplatePanel } from "../components/template-picker-panel"
 import { can } from "../lib/permissions"
 import { issuePreviewFn, loadSiteDraftFn, publishSiteFn, saveSiteDraftFn } from "../server/site-fns"
 
@@ -144,13 +138,14 @@ function Editor({
   const [mounted, setMounted] = useState(false)
   const [publishOpen, setPublishOpen] = useState(false)
   const [publishing, setPublishing] = useState(false)
-  const [settingsOpen, setSettingsOpen] = useState(false)
-  const [templateOpen, setTemplateOpen] = useState(false)
   const [templateId, setTemplateId] = useState(initialDocument.template.id)
   // Left editor rail: "components" is Puck's drag list + outline; "pages" is the pages/nav/redirects
   // panel. Leaving the Pages tab refreshes the canvas (see changeLeftTab) the way closing the old
   // dialog used to.
   const [leftTab, setLeftTab] = useState<"components" | "pages">("components")
+  // Right editor rail: "element" is Puck's field editor for the selected block; "design" is the
+  // template picker + site/theme settings. Leaving the Design tab commits theme edits to the canvas.
+  const [rightTab, setRightTab] = useState<"element" | "design">("element")
   const [structure, setStructure] = useState<StructureInput>(() =>
     structureFromDocument(initialDocument),
   )
@@ -290,10 +285,15 @@ function Editor({
     [scheduleSave],
   )
 
-  const onSettingsOpenChange = useCallback((open: boolean) => {
-    setSettingsOpen(open)
-    // Reflect the edited theme in the canvas once the panel closes.
-    if (!open) setPreviewTheme(cleanBrandingInput(brandingRef.current).theme)
+  // Switching right-rail tabs: leaving Design commits the edited theme to the canvas (recomputing
+  // Puck's config on every keystroke would reset its undo history), mirroring the old settings dialog.
+  const changeRightTab = useCallback((tab: "element" | "design") => {
+    setRightTab((prev) => {
+      if (prev === "design" && tab !== "design") {
+        setPreviewTheme(cleanBrandingInput(brandingRef.current).theme)
+      }
+      return tab
+    })
   }, [])
 
   const preview = useCallback(async () => {
@@ -392,8 +392,6 @@ function Editor({
               canPublish={canPublish}
               onPreview={() => void preview()}
               onPublish={() => setPublishOpen(true)}
-              onOpenSettings={() => setSettingsOpen(true)}
-              onOpenTemplate={() => setTemplateOpen(true)}
             />
             <div className="flex min-h-0 flex-1">
               <aside className="flex w-72 shrink-0 flex-col border-r border-border bg-background">
@@ -428,25 +426,39 @@ function Editor({
               <div className="min-w-0 flex-1">
                 <Puck.Preview />
               </div>
-              <aside className="w-80 shrink-0 overflow-y-auto border-l border-border bg-background">
-                <Puck.Fields />
+              <aside className="flex w-80 shrink-0 flex-col border-l border-border bg-background">
+                <div className="flex shrink-0 border-b border-border">
+                  <LeftTab
+                    label="Element"
+                    active={rightTab === "element"}
+                    onClick={() => changeRightTab("element")}
+                  />
+                  <LeftTab
+                    label="Design"
+                    active={rightTab === "design"}
+                    onClick={() => changeRightTab("design")}
+                  />
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                  {rightTab === "design" ? (
+                    <div className="flex flex-col gap-6 p-4">
+                      <section className="flex flex-col gap-3">
+                        <h3 className="font-heading text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Template
+                        </h3>
+                        <TemplatePanel currentId={templateId} onSelect={applyTemplate} />
+                      </section>
+                      <SiteSettingsPanel value={branding} onChange={applyBranding} />
+                    </div>
+                  ) : (
+                    <Puck.Fields />
+                  )}
+                </div>
               </aside>
             </div>
           </div>
         </Puck>
       </div>
-      <SiteSettingsDialog
-        open={settingsOpen}
-        onOpenChange={onSettingsOpenChange}
-        value={branding}
-        onChange={applyBranding}
-      />
-      <TemplatePickerDialog
-        open={templateOpen}
-        onOpenChange={setTemplateOpen}
-        currentId={templateId}
-        onSelect={applyTemplate}
-      />
       <Dialog open={publishOpen} onOpenChange={setPublishOpen}>
         <DialogContent>
           <DialogHeader>
@@ -504,8 +516,6 @@ function EditorHeader({
   canPublish,
   onPreview,
   onPublish,
-  onOpenSettings,
-  onOpenTemplate,
 }: {
   siteTitle: string
   pages: Array<{ id: string; title: string; slug: string }>
@@ -516,8 +526,6 @@ function EditorHeader({
   canPublish: boolean
   onPreview: () => void
   onPublish: () => void
-  onOpenSettings: () => void
-  onOpenTemplate: () => void
 }) {
   const { history } = usePuck()
 
@@ -572,16 +580,10 @@ function EditorHeader({
             ))}
           </select>
         )}
-        <Button variant="ghost" size="icon-sm" aria-label="Template" onClick={onOpenTemplate}>
-          <LayoutTemplateIcon className="size-4" />
-        </Button>
         <span className="flex items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
           <span className="rounded bg-secondary px-1.5 py-0.5 font-mono">v{version}</span>
           {SAVE_LABEL[saveState]}
         </span>
-        <Button variant="ghost" size="icon-sm" aria-label="Site settings" onClick={onOpenSettings}>
-          <Settings2Icon className="size-4" />
-        </Button>
         <Button variant="outline" size="sm" onClick={onPreview}>
           Preview
         </Button>
