@@ -10,10 +10,11 @@ import {
   organization,
   sql,
 } from "@realtr/db"
+import { listAdminAudit, listTenantHealth, recordAdminAudit } from "@realtr/db/admin"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { runTenantListingSync } from "./listings"
-import { isCurrentUserSuperAdmin } from "./super-admin"
+import { currentSuperAdminEmail, isCurrentUserSuperAdmin } from "./super-admin"
 
 const PROVIDER = "ddf"
 
@@ -102,9 +103,16 @@ const adminSyncInput = z.object({
 export const adminSyncFn = createServerFn({ method: "POST" })
   .validator((input: unknown) => adminSyncInput.parse(input))
   .handler(async ({ data }) => {
-    if (!(await isCurrentUserSuperAdmin()))
-      return { ok: false as const, code: "forbidden" as const }
-    return runTenantListingSync(data.organizationId, data.mode)
+    const actor = await currentSuperAdminEmail()
+    if (!actor) return { ok: false as const, code: "forbidden" as const }
+    const result = await runTenantListingSync(data.organizationId, data.mode)
+    await recordAdminAudit(db, {
+      actorEmail: actor,
+      action: "sync.trigger",
+      targetOrganizationId: data.organizationId,
+      detail: { mode: data.mode, ok: result.ok },
+    })
+    return result
   })
 
 // ── Billing reconciliation (M6-A6) ──────────────────────────────────────────────────────────────
@@ -163,11 +171,17 @@ const adminExtendGraceInput = z.object({
 export const adminExtendGraceFn = createServerFn({ method: "POST" })
   .validator((input: unknown) => adminExtendGraceInput.parse(input))
   .handler(async ({ data }) => {
-    if (!(await isCurrentUserSuperAdmin()))
-      return { ok: false as const, code: "forbidden" as const }
+    const actor = await currentSuperAdminEmail()
+    if (!actor) return { ok: false as const, code: "forbidden" as const }
     const { extendSubscriptionGrace } = await import("@realtr/db/billing")
     const until = new Date(Date.now() + data.days * 24 * 60 * 60 * 1000)
     await extendSubscriptionGrace(db, data.organizationId, until)
+    await recordAdminAudit(db, {
+      actorEmail: actor,
+      action: "billing.extend_grace",
+      targetOrganizationId: data.organizationId,
+      detail: { days: data.days, graceEndsAt: until.toISOString() },
+    })
     return { ok: true as const, graceEndsAt: until.toISOString() }
   })
 
@@ -177,8 +191,8 @@ const adminPauseInput = z.object({ organizationId: z.string().min(1), paused: z.
 export const adminSetPausedFn = createServerFn({ method: "POST" })
   .validator((input: unknown) => adminPauseInput.parse(input))
   .handler(async ({ data }) => {
-    if (!(await isCurrentUserSuperAdmin()))
-      return { ok: false as const, code: "forbidden" as const }
+    const actor = await currentSuperAdminEmail()
+    if (!actor) return { ok: false as const, code: "forbidden" as const }
     await db
       .update(integration)
       .set({ syncPaused: data.paused, updatedAt: new Date() })
@@ -189,5 +203,44 @@ export const adminSetPausedFn = createServerFn({ method: "POST" })
           eq(integration.provider, PROVIDER),
         ),
       )
+    await recordAdminAudit(db, {
+      actorEmail: actor,
+      action: data.paused ? "sync.pause" : "sync.resume",
+      targetOrganizationId: data.organizationId,
+    })
     return { ok: true as const }
   })
+
+// ── Tenant health board + audit log (M7-A1) ──────────────────────────────────────────────────────
+
+// Server functions serialize their return with a Json-typed validator; audit `detail` is jsonb typed
+// as Record<string, unknown>, which the validator rejects — narrow it to a JSON value for transport.
+type Json = string | number | boolean | null | Json[] | { [key: string]: Json }
+
+/** Consolidated per-tenant health for the operations console: the operator's at-a-glance board. */
+export const adminListTenantsFn = createServerFn({ method: "GET" }).handler(async () => {
+  if (!(await isCurrentUserSuperAdmin())) return { ok: false as const, code: "forbidden" as const }
+  const tenants = await listTenantHealth(db)
+  return {
+    ok: true as const,
+    tenants: tenants.map((t) => ({
+      ...t,
+      createdAt: t.createdAt.toISOString(),
+      lastSyncAt: t.lastSyncAt?.toISOString() ?? null,
+    })),
+  }
+})
+
+/** Recent privileged super-admin actions, for accountability. */
+export const adminListAuditFn = createServerFn({ method: "GET" }).handler(async () => {
+  if (!(await isCurrentUserSuperAdmin())) return { ok: false as const, code: "forbidden" as const }
+  const events = await listAdminAudit(db, 100)
+  return {
+    ok: true as const,
+    events: events.map((e) => ({
+      ...e,
+      detail: e.detail as unknown as Json,
+      createdAt: e.createdAt.toISOString(),
+    })),
+  }
+})

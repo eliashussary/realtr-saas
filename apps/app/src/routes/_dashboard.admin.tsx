@@ -8,22 +8,35 @@ import {
   type AdminBillingRow,
   type AdminIntegrationRow,
   adminExtendGraceFn,
+  adminListAuditFn,
   adminListBillingFn,
   adminListIntegrationsFn,
+  adminListTenantsFn,
   adminSetPausedFn,
   adminSyncFn,
 } from "../server/admin"
 
+type TenantRow = Extract<
+  Awaited<ReturnType<typeof adminListTenantsFn>>,
+  { ok: true }
+>["tenants"][number]
+type AuditRow = Extract<
+  Awaited<ReturnType<typeof adminListAuditFn>>,
+  { ok: true }
+>["events"][number]
+
 export const Route = createFileRoute("/_dashboard/admin")({
   loader: async () => ({
+    tenants: await adminListTenantsFn(),
     integrations: await adminListIntegrationsFn(),
     billing: await adminListBillingFn(),
+    audit: await adminListAuditFn(),
   }),
   component: AdminPage,
 })
 
 function AdminPage() {
-  const { integrations, billing } = Route.useLoaderData()
+  const { tenants, integrations, billing, audit } = Route.useLoaderData()
 
   if (!integrations.ok) {
     return (
@@ -51,7 +64,39 @@ function AdminPage() {
         </Link>
       </div>
 
-      <h2 className="mt-10 font-heading text-xl font-bold">DDF sync</h2>
+      <h2 className="mt-10 font-heading text-xl font-bold">Tenants</h2>
+      <p className="mt-2 text-sm text-muted-foreground">
+        Every tenant at a glance — subscription, custom domains, listing/CRM integrations, listings,
+        and lead delivery. Red flags surface here; drill into the sections below to act.
+      </p>
+      {!tenants.ok ? (
+        <p className="mt-6 text-sm text-muted-foreground">Tenant data unavailable.</p>
+      ) : tenants.tenants.length === 0 ? (
+        <p className="mt-6 text-sm text-muted-foreground">No tenants yet.</p>
+      ) : (
+        <div className="mt-6 overflow-x-auto rounded-lg border border-border">
+          <table className="w-full min-w-[720px] text-sm">
+            <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+              <tr>
+                <th className="px-3 py-2 font-medium">Tenant</th>
+                <th className="px-3 py-2 font-medium">Subscription</th>
+                <th className="px-3 py-2 font-medium">Domains</th>
+                <th className="px-3 py-2 font-medium">Integrations</th>
+                <th className="px-3 py-2 font-medium">Listings</th>
+                <th className="px-3 py-2 font-medium">Leads</th>
+                <th className="px-3 py-2 font-medium">Last sync</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tenants.tenants.map((t) => (
+                <TenantHealth key={t.organizationId} t={t} />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <h2 className="mt-12 font-heading text-xl font-bold">DDF sync</h2>
       <p className="mt-2 text-sm text-muted-foreground">
         Scheduled syncs run automatically (incremental hourly, full reconciliation daily). Pause a
         tenant to skip it, or trigger a sync immediately.
@@ -83,8 +128,130 @@ function AdminPage() {
           ))}
         </div>
       )}
+
+      <h2 className="mt-12 font-heading text-xl font-bold">Audit log</h2>
+      <p className="mt-2 text-sm text-muted-foreground">
+        Privileged operator actions (sync, pause/resume, grace extensions), most recent first.
+      </p>
+      {!audit.ok ? (
+        <p className="mt-6 text-sm text-muted-foreground">Audit log unavailable.</p>
+      ) : audit.events.length === 0 ? (
+        <p className="mt-6 text-sm text-muted-foreground">No admin actions recorded yet.</p>
+      ) : (
+        <div className="mt-6 flex flex-col divide-y divide-border rounded-lg border border-border">
+          {audit.events.map((e) => (
+            <AuditRowView key={e.id} e={e} />
+          ))}
+        </div>
+      )}
       <Toaster />
     </main>
+  )
+}
+
+function healthDot(kind: "ok" | "warn" | "bad" | "muted") {
+  const color =
+    kind === "ok"
+      ? "bg-success"
+      : kind === "warn"
+        ? "bg-warning"
+        : kind === "bad"
+          ? "bg-destructive"
+          : "bg-muted-foreground/40"
+  return <span className={`inline-block size-2 shrink-0 rounded-full ${color}`} />
+}
+
+function TenantHealth({ t }: { t: TenantRow }) {
+  const subKind =
+    t.subscriptionStatus === "active" || t.subscriptionStatus === "trialing"
+      ? "ok"
+      : t.subscriptionStatus === "past_due" || t.subscriptionStatus === "grace"
+        ? "warn"
+        : t.subscriptionStatus === "lapsed" || t.subscriptionStatus === "canceled"
+          ? "bad"
+          : "muted"
+  const domainKind =
+    t.domainWorstStatus === null
+      ? "muted"
+      : t.domainWorstStatus === "active" || t.domainWorstStatus === "verified"
+        ? "ok"
+        : t.domainWorstStatus === "error"
+          ? "bad"
+          : "warn"
+  return (
+    <tr className="border-t border-border">
+      <td className="px-3 py-2">
+        <div className="font-medium">{t.organizationName}</div>
+        <div className="text-xs text-muted-foreground">
+          {t.memberCount} member{t.memberCount === 1 ? "" : "s"}
+        </div>
+      </td>
+      <td className="px-3 py-2">
+        <span className="inline-flex items-center gap-1.5">
+          {healthDot(subKind)}
+          {t.subscriptionStatus}
+          {t.planId ? <span className="text-muted-foreground"> · {t.planId}</span> : null}
+        </span>
+      </td>
+      <td className="px-3 py-2">
+        {t.domainCount === 0 ? (
+          <span className="text-muted-foreground">—</span>
+        ) : (
+          <span className="inline-flex items-center gap-1.5">
+            {healthDot(domainKind)}
+            {t.domainCount} ({t.domainWorstStatus})
+          </span>
+        )}
+      </td>
+      <td className="px-3 py-2 text-xs">
+        <span className="inline-flex items-center gap-1.5">
+          {healthDot(t.ddfConnected ? "ok" : "muted")} DDF
+        </span>
+        <span className="ml-2 inline-flex items-center gap-1.5">
+          {healthDot(t.crmConnected ? "ok" : "muted")} CRM
+        </span>
+      </td>
+      <td className="px-3 py-2">{t.activeListings}</td>
+      <td className="px-3 py-2">
+        {t.leadCount}
+        {t.undeliveredLeads > 0 ? (
+          <span className="ml-1.5 inline-flex items-center gap-1 text-warning">
+            {healthDot("warn")}
+            {t.undeliveredLeads} undelivered
+          </span>
+        ) : null}
+      </td>
+      <td className="px-3 py-2 text-xs text-muted-foreground">
+        {t.lastSyncAt ? (
+          <>
+            {t.lastSyncStatus === "failed" ? healthDot("bad") : healthDot("ok")}{" "}
+            <LocalTime iso={t.lastSyncAt} />
+          </>
+        ) : (
+          "never"
+        )}
+      </td>
+    </tr>
+  )
+}
+
+function AuditRowView({ e }: { e: AuditRow }) {
+  const detailObject =
+    e.detail && typeof e.detail === "object" && !Array.isArray(e.detail) ? e.detail : {}
+  const detail = Object.entries(detailObject)
+    .map(([k, v]) => `${k}=${typeof v === "object" ? JSON.stringify(v) : String(v)}`)
+    .join(" ")
+  return (
+    <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-3 py-2 text-sm">
+      <div className="flex flex-wrap items-baseline gap-x-2">
+        <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-xs">{e.action}</span>
+        {e.organizationName ? <span className="font-medium">{e.organizationName}</span> : null}
+        {detail ? <span className="font-mono text-xs text-muted-foreground">{detail}</span> : null}
+      </div>
+      <div className="text-xs text-muted-foreground">
+        {e.actorEmail} · <LocalTime iso={e.createdAt} />
+      </div>
+    </div>
   )
 }
 

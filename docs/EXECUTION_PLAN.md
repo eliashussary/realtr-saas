@@ -9,7 +9,7 @@ featured listings, **exclusive (manual) listings** with **S3-compatible asset up
 dev), **dark mode**, and **teams & users** — RBAC (owner/admin/agent via better-auth access-control),
 agent invitations, and agent profiles showcased on the site. Since then M4 (leads/CRM), M5 (domain
 verification automation), and M6 (billing/entitlements) have all landed — see the milestone status
-table below. Not started: M7 operations/launch hardening.
+table below. M7 operations/launch hardening is in progress (admin console + audit log landed).
 
 ## Product outcome
 
@@ -87,7 +87,7 @@ product capabilities it gates.
 | M4 Leads + CRM | done | Capture (contact + listing-inquiry forms, store-before-deliver, honeypot/rate-limit/consent), inbox (role-scoped list + status pipeline + delivery status/retry), distribution (auto-route to listing agent; owner/admin reassign), **new-lead notification email** (worker sweep), and **Follow Up Boss delivery** (connect/test UI, worker delivery with retain-on-failure + retry) shipped and verified. Prod email transport (Resend) still a stub shared with M1 magic links |
 | M5 Domains | partial | resolution, on-demand TLS, platform subdomains, secured add/remove. Verification/status automation + production host strategy remain |
 | M6 Billing + entitlements | done | ADR 0008 accepted (Stripe hosted Checkout/Portal, webhook re-fetch-and-converge, Solo/Team + per-seat, card-required trial, 7-day grace). **M6-A1 done**: subscription/billing_event mirror (migration 0014), plan catalog + pure `resolveEntitlements` in `@realtr/core`, `billing` RBAC resource — wired permissive. **M6-A2 done**: Stripe Checkout behind an injectable gateway port (offline-tested), subscription-mirror repo + customer provisioning, billing page/card + `billing:manage` gate. **M6-A3 done**: signed raw-body webhook (`/api/billing/webhook`) with event-id ledger + re-fetch-and-converge (replay- and order-safe), Stripe→local status mapping + grace-deadline anchoring, mirror upsert as the sole writer; convergence unit-tested offline + db ledger/upsert integration test. **M6-A4 done**: Customer Portal link (server fn + Stripe adapter), pure grace→lapse sweep engine + guarded repo + hourly worker job (past_due past graceEndsAt becomes lapsed), and a dunning banner on the billing page. **M6-A5 done**: enforcement flip — one `loadEntitlements` seam gating publish/rollback, add-domain, connect-integration (CRM + DDF), invite-member, public site serving (`resolvePublishedSite` → suspended/402), and lead capture; Team seat rules (`evaluateInvite` hard-cap/confirm-charge) + best-effort Stripe seat-quantity sync on membership change. **M6-A6 done**: super-admin billing reconciliation (tenant ↔ Stripe customer/subscription + recent event history) with an extend-grace action. M6 complete. Prod email transport (Resend) still shared-stub with M1 magic links |
-| M7 Operations + launch | partial | super-admin sync console exists; broader reliability/launch hardening remains |
+| M7 Operations + launch | in progress | **M7-A1 done**: admin operations console — a tenant health board (subscription/domains/integrations/listings/leads/sync at a glance) + platform audit log (`admin_audit_event`, migration 0015) wired into every privileged super-admin action. Remaining: A2 per-tenant drill-down levers (domain re-verify/detach, run-lead-delivery), A3 structured logging/correlation/error reporting, A4 backups+runbooks, A5 security review, A6 a11y/perf/load, A7 privacy/terms/data-export+deletion + DDF launch approval |
 
 ## Milestones
 

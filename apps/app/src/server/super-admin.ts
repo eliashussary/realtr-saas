@@ -23,3 +23,9 @@ export async function isCurrentUserSuperAdmin(): Promise<boolean> {
   const email = await sessionEmail()
   return email !== null && superAdminEmails().has(email)
 }
+
+/** The current user's email if they are a super admin, else null — for audit attribution. */
+export async function currentSuperAdminEmail(): Promise<string | null> {
+  const email = await sessionEmail()
+  return email !== null && superAdminEmails().has(email) ? email : null
+}

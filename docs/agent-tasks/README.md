@@ -100,7 +100,14 @@ sweep + dunning), A5 (the enforcement flip — one `loadEntitlements` seam gatin
 connect-integration, invite-member, site serving, and lead capture; Team seat rules + Stripe seat
 sync), and A6 (super-admin billing reconciliation + extend-grace) have all landed.
 
-Suggested next packets: **M7** (operations, reliability, launch) is the remaining milestone —
+M7 (operations, reliability, launch) is in progress: **M7-A1** landed — the admin operations console
+(tenant health board + platform audit log wired into every privileged super-admin action). Next
+packets: **M7-A2** per-tenant drill-down levers (domain re-verify/detach, run lead-delivery now,
+schedule management); then A3 structured logging + request/job correlation + error reporting; A4
+backups + restore/rollback runbooks; A5 security review; A6 a11y/perf/load; A7 privacy/terms +
+data-export/deletion + DDF launch approval.
+
+Earlier framing (still valid for A3–A7): **M7** (operations, reliability, launch) —
 structured logs / request+job correlation / error reporting / dashboards; backup+restore and
 migration/rollback runbooks; a security review (tenant isolation, SSRF/DNS/domain, webhooks, forms,
 key rotation); accessibility / performance / load / failure-mode testing; and privacy/terms/data-
