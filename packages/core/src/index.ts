@@ -75,7 +75,7 @@ export {
   type PushResult,
   type Lead,
 } from "./integrations/crm"
-export { sendEmail, type EmailMessage } from "./email"
+export { sendEmail, emailConfigured, type EmailMessage } from "./email"
 export {
   runListingSync,
   type ListingSyncRepository,

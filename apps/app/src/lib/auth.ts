@@ -48,13 +48,15 @@ export const auth = betterAuth({
   plugins: [
     magicLink({
       sendMagicLink: async ({ email, url }) => {
-        // A magic link is a bearer login credential — never write it to logs in production. In dev,
-        // log it and remember it for the login page's auto-follow. Production sends it via email
-        // (Resend); until that transport is wired, production simply does not surface the link.
-        if (!isProduction) {
-          console.log(`\n🔗 Magic link for ${email}:\n   ${url}\n`)
-          lastDevMagicLink = url
-        }
+        // Send via the shared transport: Resend in production, a dev log locally (sendEmail handles
+        // that split, and never logs the link in production). Remember it in dev for auto-follow.
+        const { sendEmail } = await import("@realtr/core")
+        await sendEmail({
+          to: email,
+          subject: "Your Realtr sign-in link",
+          text: `Sign in to Realtr:\n\n${url}\n\nThis link expires shortly. If you didn't request it, you can ignore this email.`,
+        })
+        if (!isProduction) lastDevMagicLink = url
       },
     }),
     organization({

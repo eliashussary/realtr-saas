@@ -37,12 +37,19 @@ async function notify(lead: LeadRow, log: (m: string) => void): Promise<void> {
     lead.phone ? `Phone: ${lead.phone}` : null,
     lead.message ? `\n${lead.message}` : null,
   ].filter(Boolean)
-  await sendEmail({
-    to: recipients,
-    subject: `New lead: ${contactLabel(lead)}`,
-    text: lines.join("\n"),
-  })
-  log(`[leads] notified ${recipients.length} recipient(s) for lead ${lead.id}`)
+  // Best-effort: the lead is already stored and separately delivered to the CRM, so a transient email
+  // failure must not crash the sweep. The claim above makes this at-most-once.
+  try {
+    await sendEmail({
+      to: recipients,
+      subject: `New lead: ${contactLabel(lead)}`,
+      text: lines.join("\n"),
+    })
+    log(`[leads] notified ${recipients.length} recipient(s) for lead ${lead.id}`)
+  } catch (error) {
+    const { reportError } = await import("./log")
+    reportError(error, { component: "leads", action: "notify", leadId: lead.id })
+  }
 }
 
 async function deliver(lead: LeadRow, log: (m: string) => void): Promise<void> {
@@ -85,8 +92,14 @@ export async function runLeadDelivery(
   const log = options.log ?? (() => {})
   const leads = await listUnprocessedLeads(db, options.limit ?? 50)
   for (const lead of leads) {
-    await notify(lead, log)
-    await deliver(lead, log)
+    // Guard each lead so one failure never aborts the batch (delivery already retains failures).
+    try {
+      await notify(lead, log)
+      await deliver(lead, log)
+    } catch (error) {
+      const { reportError } = await import("./log")
+      reportError(error, { component: "leads", action: "runLeadDelivery", leadId: lead.id })
+    }
   }
   return { processed: leads.length }
 }
