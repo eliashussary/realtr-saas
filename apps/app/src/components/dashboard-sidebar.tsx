@@ -14,6 +14,7 @@ import {
   LogOut,
   Plug,
   Shield,
+  ShieldCheck,
   Users,
 } from "lucide-react"
 import { type ComponentType, useState } from "react"
@@ -34,6 +35,7 @@ const NAV: NavItem[] = [
   { to: "/team", label: "Team", icon: Users },
   { to: "/integrations", label: "Integrations", icon: Plug },
   { to: "/billing", label: "Billing", icon: CreditCard },
+  { to: "/privacy", label: "Data & privacy", icon: ShieldCheck },
 ]
 
 export function DashboardSidebar({

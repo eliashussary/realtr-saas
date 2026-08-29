@@ -106,8 +106,11 @@ lead deliveries, pause/resume sync, all audited), and **M7-A3** (structured logg
 per-job correlation ids + start/finish/error events, single `reportError` seam on worker + billing
 paths), and **M7-A5** (pre-launch security review — `docs/security-review-2026-08.md`; fixed
 magic-link-in-prod-logs + hardcoded auth-secret + CSRF trustedOrigins, tracked the rest) have landed.
-Next packet: **M7-A7** (privacy/terms + per-tenant data export & deletion + DDF launch approval — the
-last real feature work). Then A6 a11y/perf/load, and A4 backups + runbooks (docs, deferred to end).
+and **M7-A7** (per-tenant data export + tenant erasure via Dashboard → Data & privacy, audited;
+`docs/data-handling.md` + `docs/legal/` templates + DDF launch checklist) have landed. Remaining M7:
+**A6** a11y/perf/load testing; **A4** backups + restore/rollback runbooks + secret rotation (docs,
+deferred to end). Cross-cutting follow-ups: drizzle-orm >=0.45.2 controlled upgrade (security T1),
+production magic-link email (Resend), S3 asset-object purge on erasure.
 
 Earlier framing (still valid for A3–A7): **M7** (operations, reliability, launch) —
 structured logs / request+job correlation / error reporting / dashboards; backup+restore and

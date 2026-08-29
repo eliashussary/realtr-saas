@@ -13,7 +13,8 @@
     "./leads": "./src/leads.ts",
     "./billing": "./src/billing.ts",
     "./domains": "./src/domains.ts",
-    "./admin": "./src/admin.ts"
+    "./admin": "./src/admin.ts",
+    "./data-export": "./src/data-export.ts"
   },
   "scripts": {
     "db:generate": "drizzle-kit generate",
