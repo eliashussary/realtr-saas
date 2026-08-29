@@ -12,3 +12,23 @@ export {
   UNMANAGED,
   resolveEntitlements,
 } from "./entitlements"
+export {
+  type StripePriceConfig,
+  type CheckoutLineItem,
+  type BillingGateway,
+  type EnsureCustomerInput,
+  type CreateCheckoutInput,
+  type CheckoutSession,
+  checkoutLineItems,
+} from "./gateway"
+export {
+  type StartCheckoutInput,
+  type StartCheckoutResult,
+  startCheckout,
+} from "./checkout"
+export {
+  type StripeConfig,
+  stripeConfigFromEnv,
+  trialDaysFromEnv,
+  createStripeGateway,
+} from "./stripe-gateway"

@@ -25,6 +25,9 @@ catalog:
   # Auth
   better-auth: ^1.1.0
 
+  # Billing
+  stripe: ^17.7.0
+
   # Editor / UI
   "@measured/puck": ^0.18.2
   tailwindcss: ^4.0.0

@@ -17,6 +17,7 @@
     "@aws-sdk/client-s3": "^3.1120.0",
     "@realtr/db": "workspace:*",
     "@realtr/ddf": "workspace:*",
+    "stripe": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

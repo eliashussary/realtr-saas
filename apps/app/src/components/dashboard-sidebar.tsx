@@ -6,7 +6,16 @@ import {
   SelectValue,
 } from "@realtr/ui/components/select"
 import { Link, useRouter } from "@tanstack/react-router"
-import { Building2, Inbox, LayoutDashboard, LogOut, Plug, Shield, Users } from "lucide-react"
+import {
+  Building2,
+  CreditCard,
+  Inbox,
+  LayoutDashboard,
+  LogOut,
+  Plug,
+  Shield,
+  Users,
+} from "lucide-react"
 import { type ComponentType, useState } from "react"
 import { authClient } from "../lib/auth-client"
 import type { DashboardOrg } from "../server/tenant"
@@ -24,6 +33,7 @@ const NAV: NavItem[] = [
   { to: "/leads", label: "Leads", icon: Inbox },
   { to: "/team", label: "Team", icon: Users },
   { to: "/integrations", label: "Integrations", icon: Plug },
+  { to: "/billing", label: "Billing", icon: CreditCard },
 ]
 
 export function DashboardSidebar({
