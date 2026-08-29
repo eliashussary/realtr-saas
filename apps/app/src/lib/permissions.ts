@@ -21,6 +21,8 @@ export const statement = {
   integration: ["manage"],
   agentProfile: ["editAny", "editOwn"],
   lead: ["viewAll", "viewOwn", "assign", "update"],
+  // Subscription management (M6): manage = checkout/portal/plan changes; view = see billing status.
+  billing: ["manage", "view"],
 } as const
 
 export const ac = createAccessControl(statement)
@@ -31,6 +33,7 @@ const REALTR_ALL = {
   integration: ["manage"],
   agentProfile: ["editAny", "editOwn"],
   lead: ["viewAll", "viewOwn", "assign", "update"],
+  billing: ["manage", "view"],
 } as const
 
 export const roles = {

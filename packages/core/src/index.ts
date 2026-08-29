@@ -67,3 +67,15 @@ export {
 } from "./integrations/config"
 export { captureLead, type CaptureLeadInput, type CaptureLeadResult } from "./leads"
 export { runLeadDelivery } from "./leads-delivery"
+export {
+  type PlanId,
+  type Plan,
+  PLANS,
+  getPlan,
+  billableSeats,
+  type SubscriptionStatus,
+  type SubscriptionState,
+  type Entitlements,
+  UNMANAGED,
+  resolveEntitlements,
+} from "./billing"
