@@ -6,6 +6,7 @@ import {
   type StripePriceConfig,
   checkoutLineItems,
 } from "./gateway"
+import type { BillingWebhookEvent, SubscriptionSnapshot } from "./webhook"
 
 // Real Stripe adapter for the BillingGateway port (M6-A2). Isolated here so the SDK is imported in
 // exactly one place; everything else depends on the interface. Never imported by tests.
@@ -37,6 +38,17 @@ export function trialDaysFromEnv(): number {
   return Number.isFinite(raw) && raw >= 0 ? raw : 14
 }
 
+/** The Stripe webhook signing secret, or null when webhooks are not configured (dev without Stripe). */
+export function stripeWebhookSecretFromEnv(): string | null {
+  return process.env.STRIPE_WEBHOOK_SECRET || null
+}
+
+/** Payment-failure grace window (days). Configurable; defaults to ADR 0008's 7. */
+export function graceDaysFromEnv(): number {
+  const raw = Number(process.env.BILLING_GRACE_DAYS)
+  return Number.isFinite(raw) && raw > 0 ? raw : 7
+}
+
 export function createStripeGateway(config: StripeConfig): BillingGateway {
   const stripe = new Stripe(config.secretKey, { apiVersion: STRIPE_API_VERSION })
   return {
@@ -65,6 +77,78 @@ export function createStripeGateway(config: StripeConfig): BillingGateway {
       })
       if (!session.url) throw new Error("Stripe did not return a Checkout URL")
       return { id: session.id, url: session.url }
+    },
+  }
+}
+
+// --- Webhook adapter (M6-A3): the Stripe side of the pure convergence in webhook.ts ---
+
+/** Pull a Stripe id off a field that Stripe returns as either the id string or the expanded object. */
+function idOf(value: string | { id: string } | null | undefined): string | null {
+  if (!value) return null
+  return typeof value === "string" ? value : value.id
+}
+
+/**
+ * Derive the subscription + customer this event concerns. Covers the events A3 acts on: the
+ * subscription lifecycle, Checkout completion, and invoice payment success/failure (the dunning
+ * signals). Other event types resolve to no subscription and are recorded-and-skipped by the converger.
+ */
+function eventTargets(event: Stripe.Event): {
+  subscriptionId: string | null
+  customerId: string | null
+} {
+  const object = event.data.object as unknown as Record<string, unknown>
+  const customerId = idOf(object.customer as string | { id: string } | null | undefined)
+  if (event.type.startsWith("customer.subscription.")) {
+    return { subscriptionId: (object.id as string) ?? null, customerId }
+  }
+  // checkout.session.completed and invoice.* carry the subscription as a reference field.
+  const subscriptionId = idOf(object.subscription as string | { id: string } | null | undefined)
+  return { subscriptionId, customerId }
+}
+
+/**
+ * The Stripe half of webhook handling: verify the signature and re-fetch the subscription's current
+ * truth. Constructed from the same StripeConfig (needs `prices` to identify the seat line item) plus
+ * the webhook signing secret. Isolated here so the SDK stays in one file.
+ */
+export function createStripeWebhookAdapter(config: StripeConfig, webhookSecret: string) {
+  const stripe = new Stripe(config.secretKey, { apiVersion: STRIPE_API_VERSION })
+  return {
+    /** Verify the signature and normalize the event, or null when the signature is invalid. */
+    verify(rawBody: string, signature: string): BillingWebhookEvent | null {
+      let event: Stripe.Event
+      try {
+        event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret)
+      } catch {
+        return null
+      }
+      const { subscriptionId, customerId } = eventTargets(event)
+      return { id: event.id, type: event.type, subscriptionId, customerId }
+    },
+
+    /** Re-fetch the subscription and normalize it to a provider-agnostic snapshot. */
+    async fetchSubscription(subscriptionId: string): Promise<SubscriptionSnapshot | null> {
+      let sub: Stripe.Subscription
+      try {
+        sub = await stripe.subscriptions.retrieve(subscriptionId)
+      } catch {
+        return null
+      }
+      // Seat quantity is the licensed quantity on the additional-seat price line (0 for Solo / no overage).
+      const seatItem = sub.items.data.find((item) => item.price.id === config.prices.teamSeat)
+      const periodEnd = (sub as unknown as { current_period_end?: number }).current_period_end
+      return {
+        subscriptionId: sub.id,
+        customerId: idOf(sub.customer) ?? "",
+        organizationId: sub.metadata?.organizationId ?? null,
+        planId: sub.metadata?.planId ?? null,
+        status: sub.status,
+        currentPeriodEnd: typeof periodEnd === "number" ? new Date(periodEnd * 1000) : null,
+        cancelAtPeriodEnd: sub.cancel_at_period_end,
+        seatQuantity: seatItem?.quantity ?? 0,
+      }
     },
   }
 }

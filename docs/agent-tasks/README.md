@@ -90,8 +90,16 @@ M4 is now complete: notification email + Follow Up Boss delivery landed via a 1-
 (`runLeadDelivery`) with per-lead `deliveryStatus` and inbox retry; FUB connect UI + provider (real
 API, offline contract tests) shipped.
 
-Suggested next packets: production email transport (Resend, shared with M1 magic links); M5 domain
-verification/status automation; M6 billing; ADR 0007 (asset storage) and an RBAC ADR.
+M5 (domains) landed since: state machine + DNS verification, verify wiring, the scheduled
+re-verification worker, and the cert-issued→active transition (M5-A1..A5, ADR 0007). Remaining M5
+tails are non-core: UI status polling and active-domain auto-demotion on later DNS breakage.
+
+M6 (billing) is in progress: M6-A1 (entitlement model + resolver), M6-A2 (Stripe Checkout behind a
+gateway port), and M6-A3 (signed re-fetch-and-converge webhook + mirror) have landed.
+
+Suggested next packets: **M6-A4** (Customer Portal link + trial/grace/lapse worker sweep + dunning
+surfaces) is the natural next slice, then M6-A5 (enforcement flip + Team seat sync) and M6-A6 (support
+reconciliation console). Also open: production email transport (Resend, shared with M1 magic links).
 
 ## Dispatch prompt
 
