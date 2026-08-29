@@ -50,12 +50,12 @@ better-auth `trustedOrigins` was unset. Now derived from `BETTER_AUTH_URL` plus 
 
 ## Tracked (remediation planned, not fixed in this pass)
 
-### T1. `drizzle-orm` ^0.38.4 < 0.45.2 advisory (GHSA-gpj5-g38j-94v9) — HIGH, controlled upgrade
-A production dependency with a published advisory. Remediation is a bump to `>=0.45.2`, but that is a
-multi-minor jump for the ORM the whole data layer sits on; it must be done as its own change with the
-full **integration** suite run against Postgres (unavailable in this environment), not blind-bumped in
-a security commit. Owner: schedule a dedicated upgrade PR; run `pnpm test:integration` + a manual
-smoke of listing sync / domains / billing before merge.
+### T1. `drizzle-orm` ^0.38.4 < 0.45.2 advisory (GHSA-gpj5-g38j-94v9) — HIGH ✅ RESOLVED
+Upgraded the catalog to `drizzle-orm ^0.45.2` + `drizzle-kit ^0.31.10`. All-package typecheck (Drizzle's
+strict types catch query-shape breaks), unit tests, and `pnpm -r build` pass; `drizzle-kit generate`
+reports no schema drift (existing migrations + meta are compatible); drizzle-orm no longer appears in
+`pnpm audit --prod`. **Pre-deploy gate:** run `pnpm test:integration` (Postgres — not available in the
+dev sandbox) in CI to exercise the real query paths (listing sync, domains, billing, data export).
 
 ### T2. Framework-transitive advisories (`js-yaml`, `nanoid`, `postcss` via `@tanstack/react-start`) —
 MODERATE/HIGH. Reached only through the framework; not in our direct call paths. Remediation: update
