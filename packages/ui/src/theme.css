@@ -36,6 +36,27 @@
   --font-body: var(--t-font-body, ui-sans-serif, system-ui, sans-serif);
 
   --radius-base: var(--t-radius, 0.625rem);
+
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+}
+
+@keyframes accordion-down {
+  from {
+    height: 0;
+  }
+  to {
+    height: var(--accordion-panel-height);
+  }
+}
+
+@keyframes accordion-up {
+  from {
+    height: var(--accordion-panel-height);
+  }
+  to {
+    height: 0;
+  }
 }
 
 /* "Shopify Red" (tweakcn): red primary hsl(356 84% 48%) on cool hue-210 neutrals. */
