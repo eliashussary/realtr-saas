@@ -1,20 +1,29 @@
 import { Button } from "@realtr/ui/components/button"
 import { Toaster } from "@realtr/ui/components/sonner"
 import { Link, createFileRoute, useRouter } from "@tanstack/react-router"
-import { useState } from "react"
+import { useCallback, useState } from "react"
 import { toast } from "sonner"
 import { LocalTime } from "../components/local-time"
 import {
   type AdminBillingRow,
   type AdminIntegrationRow,
+  adminDetachDomainFn,
   adminExtendGraceFn,
   adminListAuditFn,
   adminListBillingFn,
   adminListIntegrationsFn,
+  adminListTenantDomainsFn,
   adminListTenantsFn,
+  adminRetryLeadsFn,
+  adminReverifyDomainFn,
   adminSetPausedFn,
   adminSyncFn,
 } from "../server/admin"
+
+type TenantDomain = Extract<
+  Awaited<ReturnType<typeof adminListTenantDomainsFn>>,
+  { ok: true }
+>["domains"][number]
 
 type TenantRow = Extract<
   Awaited<ReturnType<typeof adminListTenantsFn>>,
@@ -85,6 +94,7 @@ function AdminPage() {
                 <th className="px-3 py-2 font-medium">Listings</th>
                 <th className="px-3 py-2 font-medium">Leads</th>
                 <th className="px-3 py-2 font-medium">Last sync</th>
+                <th className="px-3 py-2 font-medium" />
               </tr>
             </thead>
             <tbody>
@@ -162,6 +172,78 @@ function healthDot(kind: "ok" | "warn" | "bad" | "muted") {
 }
 
 function TenantHealth({ t }: { t: TenantRow }) {
+  const router = useRouter()
+  const [open, setOpen] = useState(false)
+  const [domains, setDomains] = useState<TenantDomain[] | null>(null)
+  const [busy, setBusy] = useState<string | null>(null)
+
+  const loadDomains = useCallback(async () => {
+    const res = await adminListTenantDomainsFn({ data: { organizationId: t.organizationId } })
+    if (res.ok) setDomains(res.domains)
+  }, [t.organizationId])
+
+  const toggle = async () => {
+    const next = !open
+    setOpen(next)
+    if (next && domains === null) await loadDomains()
+  }
+
+  const reverify = async (domainId: string) => {
+    setBusy(`reverify:${domainId}`)
+    const res = await adminReverifyDomainFn({
+      data: { organizationId: t.organizationId, domainId },
+    })
+    setBusy(null)
+    if (res.ok) {
+      toast.success(`Re-verified — ${res.state}`)
+      await loadDomains()
+      await router.invalidate()
+    } else {
+      toast.error("Could not re-verify.")
+    }
+  }
+
+  const detach = async (domainId: string, hostname: string) => {
+    if (!window.confirm(`Detach ${hostname}? It stops serving and re-issuing its certificate.`))
+      return
+    setBusy(`detach:${domainId}`)
+    const res = await adminDetachDomainFn({ data: { organizationId: t.organizationId, domainId } })
+    setBusy(null)
+    if (res.ok) {
+      toast.success(`Detached ${hostname}`)
+      await loadDomains()
+      await router.invalidate()
+    } else {
+      toast.error("Could not detach.")
+    }
+  }
+
+  const retryLeads = async () => {
+    setBusy("leads")
+    const res = await adminRetryLeadsFn({ data: { organizationId: t.organizationId } })
+    setBusy(null)
+    if (res.ok) {
+      toast.success(
+        res.requeued > 0 ? `Re-queued ${res.requeued} lead(s)` : "No failed leads to retry",
+      )
+      await router.invalidate()
+    } else {
+      toast.error("Could not retry deliveries.")
+    }
+  }
+
+  const setPaused = async (paused: boolean) => {
+    setBusy("pause")
+    const res = await adminSetPausedFn({ data: { organizationId: t.organizationId, paused } })
+    setBusy(null)
+    if (res.ok) {
+      toast.success(paused ? "Sync paused" : "Sync resumed")
+      await router.invalidate()
+    } else {
+      toast.error("Could not update sync.")
+    }
+  }
+
   const subKind =
     t.subscriptionStatus === "active" || t.subscriptionStatus === "trialing"
       ? "ok"
@@ -179,59 +261,142 @@ function TenantHealth({ t }: { t: TenantRow }) {
           ? "bad"
           : "warn"
   return (
-    <tr className="border-t border-border">
-      <td className="px-3 py-2">
-        <div className="font-medium">{t.organizationName}</div>
-        <div className="text-xs text-muted-foreground">
-          {t.memberCount} member{t.memberCount === 1 ? "" : "s"}
-        </div>
-      </td>
-      <td className="px-3 py-2">
-        <span className="inline-flex items-center gap-1.5">
-          {healthDot(subKind)}
-          {t.subscriptionStatus}
-          {t.planId ? <span className="text-muted-foreground"> · {t.planId}</span> : null}
-        </span>
-      </td>
-      <td className="px-3 py-2">
-        {t.domainCount === 0 ? (
-          <span className="text-muted-foreground">—</span>
-        ) : (
+    <>
+      <tr className="border-t border-border">
+        <td className="px-3 py-2">
+          <div className="font-medium">{t.organizationName}</div>
+          <div className="text-xs text-muted-foreground">
+            {t.memberCount} member{t.memberCount === 1 ? "" : "s"}
+          </div>
+        </td>
+        <td className="px-3 py-2">
           <span className="inline-flex items-center gap-1.5">
-            {healthDot(domainKind)}
-            {t.domainCount} ({t.domainWorstStatus})
+            {healthDot(subKind)}
+            {t.subscriptionStatus}
+            {t.planId ? <span className="text-muted-foreground"> · {t.planId}</span> : null}
           </span>
-        )}
-      </td>
-      <td className="px-3 py-2 text-xs">
-        <span className="inline-flex items-center gap-1.5">
-          {healthDot(t.ddfConnected ? "ok" : "muted")} DDF
-        </span>
-        <span className="ml-2 inline-flex items-center gap-1.5">
-          {healthDot(t.crmConnected ? "ok" : "muted")} CRM
-        </span>
-      </td>
-      <td className="px-3 py-2">{t.activeListings}</td>
-      <td className="px-3 py-2">
-        {t.leadCount}
-        {t.undeliveredLeads > 0 ? (
-          <span className="ml-1.5 inline-flex items-center gap-1 text-warning">
-            {healthDot("warn")}
-            {t.undeliveredLeads} undelivered
+        </td>
+        <td className="px-3 py-2">
+          {t.domainCount === 0 ? (
+            <span className="text-muted-foreground">—</span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5">
+              {healthDot(domainKind)}
+              {t.domainCount} ({t.domainWorstStatus})
+            </span>
+          )}
+        </td>
+        <td className="px-3 py-2 text-xs">
+          <span className="inline-flex items-center gap-1.5">
+            {healthDot(t.ddfConnected ? "ok" : "muted")} DDF
           </span>
-        ) : null}
-      </td>
-      <td className="px-3 py-2 text-xs text-muted-foreground">
-        {t.lastSyncAt ? (
-          <>
-            {t.lastSyncStatus === "failed" ? healthDot("bad") : healthDot("ok")}{" "}
-            <LocalTime iso={t.lastSyncAt} />
-          </>
-        ) : (
-          "never"
-        )}
-      </td>
-    </tr>
+          <span className="ml-2 inline-flex items-center gap-1.5">
+            {healthDot(t.crmConnected ? "ok" : "muted")} CRM
+          </span>
+        </td>
+        <td className="px-3 py-2">{t.activeListings}</td>
+        <td className="px-3 py-2">
+          {t.leadCount}
+          {t.undeliveredLeads > 0 ? (
+            <span className="ml-1.5 inline-flex items-center gap-1 text-warning">
+              {healthDot("warn")}
+              {t.undeliveredLeads} undelivered
+            </span>
+          ) : null}
+        </td>
+        <td className="px-3 py-2 text-xs text-muted-foreground">
+          {t.lastSyncAt ? (
+            <>
+              {t.lastSyncStatus === "failed" ? healthDot("bad") : healthDot("ok")}{" "}
+              <LocalTime iso={t.lastSyncAt} />
+            </>
+          ) : (
+            "never"
+          )}
+        </td>
+        <td className="px-3 py-2 text-right">
+          <Button size="sm" variant="ghost" onClick={() => void toggle()}>
+            {open ? "Close" : "Manage"}
+          </Button>
+        </td>
+      </tr>
+      {open ? (
+        <tr>
+          <td colSpan={8} className="border-t border-border bg-muted/20 px-3 py-4">
+            <div className="flex flex-col gap-4">
+              <div>
+                <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Custom domains
+                </div>
+                {domains === null ? (
+                  <p className="text-sm text-muted-foreground">Loading…</p>
+                ) : domains.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No custom domains.</p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {domains.map((d) => (
+                      <div
+                        key={d.id}
+                        className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-background px-3 py-2"
+                      >
+                        <span className="font-mono text-sm">
+                          {d.hostname}{" "}
+                          <span className="text-xs text-muted-foreground">({d.status})</span>
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={busy !== null || d.status === "detached"}
+                            onClick={() => void reverify(d.id)}
+                          >
+                            {busy === `reverify:${d.id}` ? "Verifying…" : "Re-verify"}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={busy !== null || d.status === "detached"}
+                            onClick={() => void detach(d.id, d.hostname)}
+                          >
+                            {busy === `detach:${d.id}` ? "Detaching…" : "Detach"}
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={busy !== null}
+                  onClick={() => void retryLeads()}
+                >
+                  {busy === "leads" ? "Re-queuing…" : "Retry failed lead deliveries"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={busy !== null}
+                  onClick={() => void setPaused(true)}
+                >
+                  Pause sync
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={busy !== null}
+                  onClick={() => void setPaused(false)}
+                >
+                  Resume sync
+                </Button>
+              </div>
+            </div>
+          </td>
+        </tr>
+      ) : null}
+    </>
   )
 }
 

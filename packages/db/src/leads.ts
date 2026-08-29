@@ -135,6 +135,18 @@ export async function retryLeadDelivery(
   return result.rowCount ?? 0
 }
 
+/** Re-queue every failed delivery for a tenant (super-admin bulk retry). Returns the count re-queued. */
+export async function retryFailedDeliveriesForOrg(
+  database: LeadDatabase,
+  organizationId: string,
+): Promise<number> {
+  const result = await database
+    .update(lead)
+    .set({ deliveryStatus: "pending", deliveryError: null, updatedAt: new Date() })
+    .where(and(eq(lead.organizationId, organizationId), eq(lead.deliveryStatus, "failed")))
+  return result.rowCount ?? 0
+}
+
 /** Emails to notify about a new lead: the org owner plus the assigned agent (if any), deduped. */
 export async function leadNotificationRecipients(
   database: LeadDatabase,

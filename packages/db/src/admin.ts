@@ -67,6 +67,66 @@ export async function listAdminAudit(
     .limit(limit)
 }
 
+// --- Per-tenant domain levers (M7-A2) ---
+
+export interface AdminDomainRow {
+  id: string
+  hostname: string
+  status: string
+}
+
+/** A tenant's custom domains (via its sites), for the admin drill-down. */
+export async function listDomainsForOrg(
+  database: AdminDatabase,
+  organizationId: string,
+): Promise<AdminDomainRow[]> {
+  return database
+    .select({ id: domain.id, hostname: domain.hostname, status: domain.status })
+    .from(domain)
+    .innerJoin(site, eq(site.id, domain.siteId))
+    .where(eq(site.organizationId, organizationId))
+    .orderBy(domain.hostname)
+}
+
+/**
+ * Set a domain's status only when it belongs to the given org (verified via its site). Returns true if
+ * a row was updated. Used by the admin detach lever; the org check prevents cross-tenant mutation.
+ */
+export async function adminSetDomainStatus(
+  database: AdminDatabase,
+  organizationId: string,
+  domainId: string,
+  status: string,
+): Promise<boolean> {
+  const [owned] = await database
+    .select({ id: domain.id })
+    .from(domain)
+    .innerJoin(site, eq(site.id, domain.siteId))
+    .where(and(eq(domain.id, domainId), eq(site.organizationId, organizationId)))
+    .limit(1)
+  if (!owned) return false
+  await database
+    .update(domain)
+    .set({ status, updatedAt: new Date() })
+    .where(eq(domain.id, domainId))
+  return true
+}
+
+/** Resolve a domain to its org (via site) and hostname — for the admin re-verify lever. */
+export async function adminFindDomain(
+  database: AdminDatabase,
+  organizationId: string,
+  domainId: string,
+): Promise<{ id: string; hostname: string } | null> {
+  const [row] = await database
+    .select({ id: domain.id, hostname: domain.hostname })
+    .from(domain)
+    .innerJoin(site, eq(site.id, domain.siteId))
+    .where(and(eq(domain.id, domainId), eq(site.organizationId, organizationId)))
+    .limit(1)
+  return row ?? null
+}
+
 // --- Tenant health board ---
 
 export interface TenantHealthRow {

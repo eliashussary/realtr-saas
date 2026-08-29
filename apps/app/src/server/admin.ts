@@ -244,3 +244,88 @@ export const adminListAuditFn = createServerFn({ method: "GET" }).handler(async 
     })),
   }
 })
+
+// ── Per-tenant drill-down levers (M7-A2) ─────────────────────────────────────────────────────────
+
+function rendererBaseHost(): string {
+  return process.env.RENDERER_BASE_HOST ?? "sites.realtr.app"
+}
+
+const orgInput = z.object({ organizationId: z.string().min(1) })
+const domainActionInput = z.object({
+  organizationId: z.string().min(1),
+  domainId: z.string().min(1),
+})
+
+/** A tenant's custom domains + their statuses, for the admin drill-down. */
+export const adminListTenantDomainsFn = createServerFn({ method: "POST" })
+  .validator((input: unknown) => orgInput.parse(input))
+  .handler(async ({ data }) => {
+    if (!(await isCurrentUserSuperAdmin()))
+      return { ok: false as const, code: "forbidden" as const }
+    const { listDomainsForOrg } = await import("@realtr/db/admin")
+    return { ok: true as const, domains: await listDomainsForOrg(db, data.organizationId) }
+  })
+
+/** Re-run DNS verification for a tenant's domain now (super admin). */
+export const adminReverifyDomainFn = createServerFn({ method: "POST" })
+  .validator((input: unknown) => domainActionInput.parse(input))
+  .handler(async ({ data }) => {
+    const actor = await currentSuperAdminEmail()
+    if (!actor) return { ok: false as const, code: "forbidden" as const }
+    const { adminFindDomain } = await import("@realtr/db/admin")
+    const found = await adminFindDomain(db, data.organizationId, data.domainId)
+    if (!found) return { ok: false as const, code: "not_found" as const }
+
+    const { runDomainVerification, nodeDnsResolver } = await import("@realtr/core")
+    const { createDomainRepository } = await import("@realtr/db/domains")
+    const outcome = await runDomainVerification({
+      domainId: data.domainId,
+      expectedCnameTarget: rendererBaseHost(),
+      resolver: nodeDnsResolver,
+      repository: createDomainRepository(db),
+    })
+    await recordAdminAudit(db, {
+      actorEmail: actor,
+      action: "domain.reverify",
+      targetOrganizationId: data.organizationId,
+      detail: { hostname: found.hostname, state: outcome.state },
+    })
+    return { ok: true as const, state: outcome.state }
+  })
+
+/** Detach a tenant's domain (stops serving + cert issuance). Terminal; the tenant re-adds to redo. */
+export const adminDetachDomainFn = createServerFn({ method: "POST" })
+  .validator((input: unknown) => domainActionInput.parse(input))
+  .handler(async ({ data }) => {
+    const actor = await currentSuperAdminEmail()
+    if (!actor) return { ok: false as const, code: "forbidden" as const }
+    const { adminFindDomain, adminSetDomainStatus } = await import("@realtr/db/admin")
+    const found = await adminFindDomain(db, data.organizationId, data.domainId)
+    if (!found) return { ok: false as const, code: "not_found" as const }
+    await adminSetDomainStatus(db, data.organizationId, data.domainId, "detached")
+    await recordAdminAudit(db, {
+      actorEmail: actor,
+      action: "domain.detach",
+      targetOrganizationId: data.organizationId,
+      detail: { hostname: found.hostname },
+    })
+    return { ok: true as const }
+  })
+
+/** Re-queue all failed lead deliveries for a tenant so the next worker sweep retries them. */
+export const adminRetryLeadsFn = createServerFn({ method: "POST" })
+  .validator((input: unknown) => orgInput.parse(input))
+  .handler(async ({ data }) => {
+    const actor = await currentSuperAdminEmail()
+    if (!actor) return { ok: false as const, code: "forbidden" as const }
+    const { retryFailedDeliveriesForOrg } = await import("@realtr/db/leads")
+    const requeued = await retryFailedDeliveriesForOrg(db, data.organizationId)
+    await recordAdminAudit(db, {
+      actorEmail: actor,
+      action: "leads.retry_failed",
+      targetOrganizationId: data.organizationId,
+      detail: { requeued },
+    })
+    return { ok: true as const, requeued }
+  })
