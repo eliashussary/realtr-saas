@@ -3,11 +3,16 @@ import {
   getSource,
   listConnectedListingSources,
   loadListingSourceConfig,
+  nodeDnsResolver,
+  runDomainVerification,
   runLeadDelivery,
 } from "@realtr/core"
 import { db } from "@realtr/db"
+import { createDomainRepository, listDomainsAwaitingVerification } from "@realtr/db/domains"
 import { createListingRepository } from "@realtr/db/listings"
 import PgBoss from "pg-boss"
+import { DOMAINS_DISPATCH_QUEUE, handleDomainsDispatch } from "./domains-dispatch"
+import { DOMAINS_VERIFY_QUEUE, handleDomainsVerify } from "./domains-verify"
 import type { WorkerEnvironment } from "./env"
 import {
   LISTINGS_DISPATCH_QUEUE,
@@ -24,6 +29,10 @@ const RECONCILE_CRON = "30 23 * * *"
 // Lead notification + CRM delivery: sweep unprocessed leads every minute (store-before-deliver).
 const LEAD_DELIVERY_QUEUE = "lead-delivery"
 const LEAD_DELIVERY_CRON = "* * * * *"
+
+// Re-verify pending/error custom domains so DNS that propagates later flips them to verified.
+const DOMAINS_DISPATCH_CRON = "*/15 * * * *"
+const rendererBaseHost = process.env.RENDERER_BASE_HOST ?? "sites.realtr.app"
 
 export interface WorkerRuntime {
   start(): Promise<void>
@@ -135,6 +144,46 @@ export function createWorkerRuntime(environment: WorkerEnvironment): WorkerRunti
         await runLeadDelivery({ log })
       })
       await boss.schedule(LEAD_DELIVERY_QUEUE, LEAD_DELIVERY_CRON, { version: 1 })
+
+      // Domain re-verification: a scheduled dispatcher enqueues one verify job per domain still
+      // trying to reach `verified`. singletonKey per domain avoids piling up duplicate checks.
+      const domainRepository = createDomainRepository(db)
+      await boss.createQueue(DOMAINS_VERIFY_QUEUE, {
+        name: DOMAINS_VERIFY_QUEUE,
+        retryLimit: 3,
+        retryDelay: 30,
+      })
+      await boss.createQueue(DOMAINS_DISPATCH_QUEUE, { name: DOMAINS_DISPATCH_QUEUE })
+      await boss.work<unknown>(DOMAINS_VERIFY_QUEUE, async (jobs) => {
+        for (const job of jobs) {
+          await handleDomainsVerify(job.data, {
+            verify: (domainId) =>
+              runDomainVerification({
+                domainId,
+                expectedCnameTarget: rendererBaseHost,
+                resolver: nodeDnsResolver,
+                repository: domainRepository,
+              }),
+            log,
+          })
+        }
+      })
+      await boss.work<unknown>(DOMAINS_DISPATCH_QUEUE, async (jobs) => {
+        for (const job of jobs) {
+          await handleDomainsDispatch(job.data, {
+            listAwaiting: () => listDomainsAwaitingVerification(db),
+            enqueue: async (domainId) => {
+              await boss.send(
+                DOMAINS_VERIFY_QUEUE,
+                { version: 1, domainId },
+                { singletonKey: domainId },
+              )
+            },
+            log,
+          })
+        }
+      })
+      await boss.schedule(DOMAINS_DISPATCH_QUEUE, DOMAINS_DISPATCH_CRON, { version: 1 })
 
       await listen(healthServer, environment.healthPort)
       started = true

@@ -1,7 +1,12 @@
-import { eq } from "drizzle-orm"
+import { eq, inArray } from "drizzle-orm"
 import type { NodePgDatabase } from "drizzle-orm/node-postgres"
 import type * as schema from "./schema"
 import { domain } from "./schema"
+
+// States the background job keeps trying to advance toward `verified`. `active`/`verified` are left
+// alone (no auto-downgrade — avoids flapping a working domain on a transient DNS blip); `detached` is
+// terminal.
+const VERIFIABLE_STATES = ["pending", "verifying", "error"] as const
 
 export type DomainDatabase = NodePgDatabase<typeof schema>
 
@@ -43,3 +48,13 @@ export function createDomainRepository(database: DomainDatabase) {
 }
 
 export type DomainRepository = ReturnType<typeof createDomainRepository>
+
+/** Domains the scheduled re-verification job should attempt (pending/verifying/error). */
+export async function listDomainsAwaitingVerification(
+  database: DomainDatabase,
+): Promise<Array<{ id: string }>> {
+  return database
+    .select({ id: domain.id })
+    .from(domain)
+    .where(inArray(domain.status, [...VERIFIABLE_STATES]))
+}
