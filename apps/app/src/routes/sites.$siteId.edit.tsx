@@ -17,17 +17,14 @@ import { type ThemeTokens, themeToCssVars } from "@realtr/ui/tokens"
 import { Link, createFileRoute, redirect } from "@tanstack/react-router"
 import {
   ChevronLeftIcon,
-  FilesIcon,
   LayoutTemplateIcon,
-  PanelLeftIcon,
-  PanelRightIcon,
   Redo2Icon,
   Settings2Icon,
   Undo2Icon,
 } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
-import { PagesNavDialog } from "../components/pages-nav-dialog"
+import { PagesNavPanel } from "../components/pages-nav-panel"
 import {
   type BrandingInput,
   brandingFromDocument,
@@ -150,7 +147,10 @@ function Editor({
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [templateOpen, setTemplateOpen] = useState(false)
   const [templateId, setTemplateId] = useState(initialDocument.template.id)
-  const [structureOpen, setStructureOpen] = useState(false)
+  // Left editor rail: "components" is Puck's drag list + outline; "pages" is the pages/nav/redirects
+  // panel. Leaving the Pages tab refreshes the canvas (see changeLeftTab) the way closing the old
+  // dialog used to.
+  const [leftTab, setLeftTab] = useState<"components" | "pages">("components")
   const [structure, setStructure] = useState<StructureInput>(() =>
     structureFromDocument(initialDocument),
   )
@@ -245,16 +245,21 @@ function Editor({
     [currentPageId, scheduleSave],
   )
 
+  // "Edit" a page from the Pages tab: make it the active page, switch to the Components tab to edit
+  // its blocks, and remount the canvas so it shows that page.
   const editPage = useCallback((id: string) => {
     setCurrentPageId(id)
-    setStructureOpen(false)
+    setLeftTab("components")
     setStructureRev((rev) => rev + 1)
   }, [])
 
-  const onStructureOpenChange = useCallback((open: boolean) => {
-    setStructureOpen(open)
-    // Refresh the canvas once the panel closes so it shows the edited menu and pages.
-    if (!open) setStructureRev((rev) => rev + 1)
+  // Switching tabs: leaving Pages refreshes the canvas so it reflects menu/page edits (Puck is
+  // uncontrolled after mount), mirroring what closing the old pages dialog did.
+  const changeLeftTab = useCallback((tab: "components" | "pages") => {
+    setLeftTab((prev) => {
+      if (prev === "pages" && tab !== "pages") setStructureRev((rev) => rev + 1)
+      return tab
+    })
   }, [])
 
   // Switch templates in place: content and theme are shared across templates (same block registry),
@@ -357,28 +362,6 @@ function Editor({
     () => structure.pages.map((page) => ({ id: page.id, title: page.title, slug: page.slug })),
     [structure.pages],
   )
-  const overrides = useMemo(
-    () => ({
-      header: () => (
-        <EditorHeader
-          siteTitle={siteTitle}
-          pages={pageTabs}
-          currentPageId={currentPageId}
-          onPageChange={setCurrentPageId}
-          saveState={saveState}
-          version={version}
-          canPublish={canPublish}
-          onPreview={() => void preview()}
-          onPublish={() => setPublishOpen(true)}
-          onOpenSettings={() => setSettingsOpen(true)}
-          onOpenStructure={() => setStructureOpen(true)}
-          onOpenTemplate={() => setTemplateOpen(true)}
-        />
-      ),
-    }),
-    [siteTitle, pageTabs, currentPageId, saveState, version, canPublish, preview],
-  )
-
   if (!mounted) return <Unavailable message="Loading editor…" />
 
   return (
@@ -397,22 +380,66 @@ function Editor({
           config={config}
           data={initialData}
           onChange={onPuckChange}
-          overrides={overrides}
-        />
+        >
+          <div className="flex h-full flex-col">
+            <EditorHeader
+              siteTitle={siteTitle}
+              pages={pageTabs}
+              currentPageId={currentPageId}
+              onPageChange={setCurrentPageId}
+              saveState={saveState}
+              version={version}
+              canPublish={canPublish}
+              onPreview={() => void preview()}
+              onPublish={() => setPublishOpen(true)}
+              onOpenSettings={() => setSettingsOpen(true)}
+              onOpenTemplate={() => setTemplateOpen(true)}
+            />
+            <div className="flex min-h-0 flex-1">
+              <aside className="flex w-72 shrink-0 flex-col border-r border-border bg-background">
+                <div className="flex shrink-0 border-b border-border">
+                  <LeftTab
+                    label="Pages"
+                    active={leftTab === "pages"}
+                    onClick={() => changeLeftTab("pages")}
+                  />
+                  <LeftTab
+                    label="Components"
+                    active={leftTab === "components"}
+                    onClick={() => changeLeftTab("components")}
+                  />
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                  {leftTab === "pages" ? (
+                    <PagesNavPanel
+                      value={structure}
+                      onChange={applyStructure}
+                      currentPageId={currentPageId}
+                      onEditPage={editPage}
+                    />
+                  ) : (
+                    <>
+                      <Puck.Components />
+                      <Puck.Outline />
+                    </>
+                  )}
+                </div>
+              </aside>
+              <div className="min-w-0 flex-1">
+                <Puck.Preview />
+              </div>
+              <aside className="w-80 shrink-0 overflow-y-auto border-l border-border bg-background">
+                <Puck.Fields />
+              </aside>
+            </div>
+          </div>
+        </Puck>
       </div>
       <SiteSettingsDialog
         open={settingsOpen}
         onOpenChange={onSettingsOpenChange}
         value={branding}
         onChange={applyBranding}
-      />
-      <PagesNavDialog
-        open={structureOpen}
-        onOpenChange={onStructureOpenChange}
-        value={structure}
-        onChange={applyStructure}
-        currentPageId={currentPageId}
-        onEditPage={editPage}
       />
       <TemplatePickerDialog
         open={templateOpen}
@@ -443,6 +470,30 @@ function Editor({
   )
 }
 
+function LeftTab({
+  label,
+  active,
+  onClick,
+}: {
+  label: string
+  active: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex-1 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
+        active
+          ? "border-primary text-foreground"
+          : "border-transparent text-muted-foreground hover:text-foreground"
+      }`}
+    >
+      {label}
+    </button>
+  )
+}
+
 function EditorHeader({
   siteTitle,
   pages,
@@ -454,7 +505,6 @@ function EditorHeader({
   onPreview,
   onPublish,
   onOpenSettings,
-  onOpenStructure,
   onOpenTemplate,
 }: {
   siteTitle: string
@@ -467,39 +517,13 @@ function EditorHeader({
   onPreview: () => void
   onPublish: () => void
   onOpenSettings: () => void
-  onOpenStructure: () => void
   onOpenTemplate: () => void
 }) {
-  const { history, dispatch, appState } = usePuck()
-  const ui = appState.ui
+  const { history } = usePuck()
 
   return (
-    <header
-      style={{ gridArea: "header" }}
-      className="flex h-14 items-center justify-between gap-4 border-b border-border bg-background px-4"
-    >
+    <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-border bg-background px-4">
       <div className="flex min-w-0 items-center gap-2">
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Toggle components panel"
-          onClick={() =>
-            dispatch({ type: "setUi", ui: { leftSideBarVisible: !ui.leftSideBarVisible } })
-          }
-        >
-          <PanelLeftIcon className="size-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Toggle page panel"
-          onClick={() =>
-            dispatch({ type: "setUi", ui: { rightSideBarVisible: !ui.rightSideBarVisible } })
-          }
-        >
-          <PanelRightIcon className="size-4" />
-        </Button>
-        <span className="mx-1 h-5 w-px shrink-0 bg-border" />
         <Link
           to="/"
           className="flex shrink-0 items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
@@ -548,14 +572,6 @@ function EditorHeader({
             ))}
           </select>
         )}
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Pages and navigation"
-          onClick={onOpenStructure}
-        >
-          <FilesIcon className="size-4" />
-        </Button>
         <Button variant="ghost" size="icon-sm" aria-label="Template" onClick={onOpenTemplate}>
           <LayoutTemplateIcon className="size-4" />
         </Button>

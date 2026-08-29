@@ -16,3 +16,11 @@
   --puck-color-azure-05: var(--color-primary);
   --puck-color-azure-06: var(--color-primary);
 }
+
+/* We render a custom Puck layout via <Puck> children (a tabbed left rail + preview + fields) instead
+   of Puck's default PuckLayout grid, so the Puck root no longer gets its height from that grid. Give
+   the root full height so the custom shell (and the iframe preview inside it) fills the viewport. */
+.realtr-editor,
+.realtr-editor .Puck {
+  height: 100%;
+}
