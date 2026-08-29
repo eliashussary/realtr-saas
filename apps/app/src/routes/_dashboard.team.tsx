@@ -56,10 +56,10 @@ function TeamPage() {
   const { members, invites, canManageMembers, canAssignOwner, myMemberId } = data
   const roleOptions = canAssignOwner ? ["owner", "admin", "agent"] : ["admin", "agent"]
 
-  async function invite(e: React.FormEvent) {
+  async function invite(e: React.FormEvent, confirmSeatCharge = false) {
     e.preventDefault()
     setBusy(true)
-    const res = await inviteMemberFn({ data: { email, role: inviteRole } })
+    const res = await inviteMemberFn({ data: { email, role: inviteRole, confirmSeatCharge } })
     setBusy(false)
     if (res.ok) {
       setEmail("")
@@ -67,11 +67,28 @@ function TeamPage() {
       toast.success("Invitation sent.", {
         description: res.inviteUrl ? "Dev: invite link logged to the app terminal." : undefined,
       })
-    } else {
-      toast.error(
-        res.code === "already_member" ? "That person is already on the team." : "Could not invite.",
-      )
+      return
     }
+    if (res.code === "seat_charge_confirm") {
+      // Team beyond the included seats: confirm the added per-seat charge, then re-send confirmed.
+      const perMonth = `$${(res.addedMonthlyCents / 100).toLocaleString("en-CA")}`
+      toast("Adding this member costs an extra seat", {
+        description: `${perMonth}/mo will be added to your subscription.`,
+        action: { label: "Confirm & invite", onClick: () => void invite(e, true) },
+      })
+      return
+    }
+    if (res.code === "seat_limit") {
+      toast.error("Your plan is at its member limit. Upgrade to Team to add members.")
+      return
+    }
+    if (res.code === "payment_required") {
+      toast.error("Your subscription is inactive. Update billing to add members.")
+      return
+    }
+    toast.error(
+      res.code === "already_member" ? "That person is already on the team." : "Could not invite.",
+    )
   }
 
   async function changeRole(member: TeamMember, role: string) {

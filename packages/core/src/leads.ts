@@ -25,6 +25,12 @@ export async function captureLead(input: CaptureLeadInput): Promise<CaptureLeadR
   if (site.status === "error") return { status: "error" }
   if (site.status !== "ok") return { status: "not_found" }
 
+  // Leads-off gate (M6-A5): a subscription past due stops capturing leads even while the site is still
+  // served. Pre-billing/good-standing tenants pass. Look like success to the visitor; store nothing.
+  const { loadEntitlements } = await import("./billing/service")
+  const entitlements = await loadEntitlements(site.organizationId)
+  if (!entitlements.canCaptureLeads) return { status: "dropped" }
+
   const rlKey = `${site.organizationId}:${input.ip ?? "unknown"}`
   if (rateLimited(rlKey, Date.now())) return { status: "dropped" }
 

@@ -234,7 +234,7 @@ export const addDomain = createServerFn({ method: "POST" })
     const { randomUUID } = await import("node:crypto")
     const { getRequest } = await import("@tanstack/react-start/server")
     const { auth } = await import("../lib/auth")
-    const { db, domain } = await import("@realtr/db")
+    const { db, domain, eq } = await import("@realtr/db")
     const { findAuthorizedSite, resolveOrganizationAuthorization } = await import("./authorization")
 
     const session = await auth.api.getSession({ headers: getRequest().headers })
@@ -252,6 +252,26 @@ export const addDomain = createServerFn({ method: "POST" })
 
     const target = await findAuthorizedSite(authorization, data.siteId)
     if ("ok" in target && !target.ok) throw new Error("Site not found")
+
+    // Entitlement gate (M6-A5): the plan caps custom domains (0 when not in good standing). Count the
+    // org's existing custom domains (the platform subdomain doesn't count) and refuse past the cap.
+    const { loadEntitlements } = await import("@realtr/core")
+    const { isPlatformHostname } = await import("./platform")
+    const entitlements = await loadEntitlements(authorization.organizationId)
+    const { site: siteTable } = await import("@realtr/db")
+    const existing = await db
+      .select({ hostname: domain.hostname })
+      .from(domain)
+      .innerJoin(siteTable, eq(siteTable.id, domain.siteId))
+      .where(eq(siteTable.organizationId, authorization.organizationId))
+    const customCount = existing.filter((d) => !isPlatformHostname(d.hostname)).length
+    if (customCount >= entitlements.customDomains) {
+      throw new Error(
+        entitlements.inGoodStanding
+          ? "Custom domain limit reached for your plan"
+          : "An active subscription is required to add a custom domain",
+      )
+    }
 
     const inserted = await db
       .insert(domain)

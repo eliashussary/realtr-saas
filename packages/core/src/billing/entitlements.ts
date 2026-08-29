@@ -24,6 +24,8 @@ export interface Entitlements {
   status: SubscriptionStatus
   /** Full read/write standing (active or trialing). */
   inGoodStanding: boolean
+  /** Whether the public site is served at all. True through grace; false only once lapsed/canceled. */
+  siteServed: boolean
   canEditSite: boolean
   canPublish: boolean
   canCaptureLeads: boolean
@@ -34,6 +36,8 @@ export interface Entitlements {
   includedMembers: number
   /** Team: members beyond `includedMembers` are billable rather than blocked. */
   meteredSeats: boolean
+  /** Price per additional seat beyond `includedMembers`, CAD cents (0 when seats aren't metered). */
+  additionalSeatPriceCents: number
   /** Hard member cap (`null` = uncapped, extra seats billable). */
   memberCap: number | null
 }
@@ -44,6 +48,7 @@ export interface Entitlements {
 export const UNMANAGED: Entitlements = {
   status: "none",
   inGoodStanding: true,
+  siteServed: true,
   canEditSite: true,
   canPublish: true,
   canCaptureLeads: true,
@@ -51,14 +56,18 @@ export const UNMANAGED: Entitlements = {
   customDomains: 1,
   includedMembers: 1,
   meteredSeats: false,
+  additionalSeatPriceCents: 0,
   memberCap: null,
 }
 
 function fromPlan(plan: Plan, status: SubscriptionStatus): Entitlements {
   const good = status === "active" || status === "trialing"
+  // Served through the payment-failure grace window (past_due); dark only once lapsed or canceled.
+  const served = status !== "lapsed" && status !== "canceled"
   return {
     status,
     inGoodStanding: good,
+    siteServed: served,
     canEditSite: good,
     canPublish: good,
     canCaptureLeads: good,
@@ -66,6 +75,7 @@ function fromPlan(plan: Plan, status: SubscriptionStatus): Entitlements {
     customDomains: good ? plan.customDomains : 0,
     includedMembers: plan.includedMembers,
     meteredSeats: plan.additionalSeatPriceCents > 0,
+    additionalSeatPriceCents: plan.additionalSeatPriceCents,
     memberCap: plan.memberCap,
   }
 }

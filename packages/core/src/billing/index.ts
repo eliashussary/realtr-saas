@@ -12,6 +12,8 @@ export {
   UNMANAGED,
   resolveEntitlements,
 } from "./entitlements"
+export { loadEntitlements } from "./service"
+export { type InviteDecision, evaluateInvite, syncSeatsForOrg } from "./seats"
 export {
   type StripePriceConfig,
   type CheckoutLineItem,
@@ -35,6 +37,7 @@ export {
   createStripeGateway,
   createStripeWebhookAdapter,
   createBillingPortalSession,
+  syncSubscriptionSeatQuantity,
 } from "./stripe-gateway"
 export {
   type GraceCandidate,

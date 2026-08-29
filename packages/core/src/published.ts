@@ -1,5 +1,6 @@
 import { db } from "@realtr/db"
 import { createSiteDocumentRepository } from "@realtr/db/site-documents"
+import { loadEntitlements } from "./billing/service"
 import { resolveSiteByHost } from "./tenant"
 
 export type PublishedSiteResult =
@@ -12,16 +13,22 @@ export type PublishedSiteResult =
       document: Record<string, unknown>
     }
   | { status: "not_found" }
+  | { status: "suspended" }
   | { status: "error" }
 
 /**
  * Resolve a request host to its live published revision for public rendering. Fail-closed: an
  * unknown/unservable host or an unpublished site is `not_found`; a set pointer whose revision row is
- * missing is `error` (503), never a draft or template-default fallback (ADR 0004).
+ * missing is `error` (503), never a draft or template-default fallback (ADR 0004). A tenant whose
+ * subscription has lapsed is `suspended` — the content is intact but not served (M6-A5).
  */
 export async function resolvePublishedSite(host: string): Promise<PublishedSiteResult> {
   const resolved = await resolveSiteByHost(host)
   if (!resolved) return { status: "not_found" }
+
+  // Enforcement seam: a lapsed/canceled subscription takes the site dark (reactivation restores it).
+  const entitlements = await loadEntitlements(resolved.organization.id)
+  if (!entitlements.siteServed) return { status: "suspended" }
 
   const repository = createSiteDocumentRepository(db)
   const state = await repository.findState(resolved.organization.id, resolved.site.id)

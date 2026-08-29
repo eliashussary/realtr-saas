@@ -15,6 +15,7 @@ export type PublishResult =
   | { ok: false; code: "stale"; currentDraftVersion: bigint }
   | { ok: false; code: "invalid"; issues: DraftValidationIssue[] }
   | { ok: false; code: "forbidden" }
+  | { ok: false; code: "payment_required" }
   | { ok: false; code: "not_found" }
 
 /**
@@ -26,6 +27,11 @@ export async function publishSite(
   input: { siteId: string; expectedDraftVersion: bigint },
 ): Promise<PublishResult> {
   if (!canPublish(authorization.role)) return { ok: false, code: "forbidden" }
+  // Entitlement gate (M6-A5): a subscription not in good standing cannot publish.
+  const { loadEntitlements } = await import("@realtr/core")
+  if (!(await loadEntitlements(authorization.organizationId)).canPublish) {
+    return { ok: false, code: "payment_required" }
+  }
 
   const repository = createSiteDocumentRepository(db)
   const state = await repository.findState(authorization.organizationId, input.siteId)
@@ -66,6 +72,7 @@ export type RollbackResult =
   | { ok: true; revisionId: string; publicationNumber: bigint; draftVersion: bigint }
   | { ok: false; code: "invalid"; issues: DraftValidationIssue[] }
   | { ok: false; code: "forbidden" }
+  | { ok: false; code: "payment_required" }
   | { ok: false; code: "not_found" }
 
 /**
@@ -77,6 +84,10 @@ export async function rollbackSite(
   input: { siteId: string; targetRevisionId: string; reason?: string },
 ): Promise<RollbackResult> {
   if (!canPublish(authorization.role)) return { ok: false, code: "forbidden" }
+  const { loadEntitlements } = await import("@realtr/core")
+  if (!(await loadEntitlements(authorization.organizationId)).canPublish) {
+    return { ok: false, code: "payment_required" }
+  }
 
   const repository = createSiteDocumentRepository(db)
   const target = await repository.findRevision(

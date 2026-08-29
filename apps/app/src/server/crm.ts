@@ -49,6 +49,11 @@ export const connectCrmFn = createServerFn({ method: "POST" })
     if (!can(authorization.role, "integration", "manage")) {
       return { ok: false as const, code: "forbidden" as const }
     }
+    // Entitlement gate (M6-A5): connecting an integration requires an in-good-standing subscription.
+    const { loadEntitlements } = await import("@realtr/core")
+    if (!(await loadEntitlements(authorization.organizationId)).canManageIntegrations) {
+      return { ok: false as const, code: "payment_required" as const }
+    }
     const verified = await verify(authorization.organizationId, data.apiKey)
     if (!verified.ok) {
       return { ok: false as const, code: "verify_failed" as const, message: verified.error }

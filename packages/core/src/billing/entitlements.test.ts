@@ -36,7 +36,7 @@ describe("resolveEntitlements", () => {
     expect(e.meteredSeats).toBe(true)
   })
 
-  it("makes past_due read-only with leads off but keeps the plan shape", () => {
+  it("makes past_due read-only with leads off but keeps the site served (grace)", () => {
     const e = resolveEntitlements({ planId: "solo", status: "past_due" })
     expect(e.inGoodStanding).toBe(false)
     expect(e.canEditSite).toBe(false)
@@ -45,16 +45,25 @@ describe("resolveEntitlements", () => {
     expect(e.canManageIntegrations).toBe(false)
     // Can't attach a new domain while not in good standing.
     expect(e.customDomains).toBe(0)
+    // The public site is still served during the grace window.
+    expect(e.siteServed).toBe(true)
   })
 
-  it("locks everything on lapsed and canceled", () => {
+  it("takes the site dark on lapsed and canceled", () => {
     for (const status of ["lapsed", "canceled"] as const) {
       const e = resolveEntitlements({ planId: "team", status })
       expect(e.inGoodStanding).toBe(false)
       expect(e.canPublish).toBe(false)
       expect(e.canCaptureLeads).toBe(false)
       expect(e.customDomains).toBe(0)
+      expect(e.siteServed).toBe(false)
     }
+  })
+
+  it("keeps pre-billing tenants served with seats unmetered", () => {
+    const e = resolveEntitlements(null)
+    expect(e.siteServed).toBe(true)
+    expect(e.additionalSeatPriceCents).toBe(0)
   })
 
   it("falls back to permissive defaults for an unknown plan but preserves status", () => {

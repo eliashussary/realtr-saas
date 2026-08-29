@@ -79,6 +79,11 @@ export const connectListingSourceFn = createServerFn({ method: "POST" })
     if (!can(authorization.role, "integration", "manage")) {
       return { ok: false as const, code: "forbidden" as const }
     }
+    // Entitlement gate (M6-A5): connecting a listing source requires an in-good-standing subscription.
+    const { loadEntitlements } = await import("@realtr/core")
+    if (!(await loadEntitlements(authorization.organizationId)).canManageIntegrations) {
+      return { ok: false as const, code: "payment_required" as const }
+    }
 
     const config = { clientId: data.clientId, clientSecret: data.clientSecret }
     const verified = await verifyCredentials(authorization.organizationId, config)

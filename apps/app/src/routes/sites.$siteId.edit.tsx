@@ -309,6 +309,8 @@ function Editor({
     else if (res.code === "stale") toast.error("Draft changed — reload before publishing.")
     else if (res.code === "invalid") toast.error("Fix validation issues before publishing.")
     else if (res.code === "forbidden") toast.error("You do not have permission to publish.")
+    else if (res.code === "payment_required")
+      toast.error("Your subscription is inactive. Update billing to publish.")
     else toast.error("Publish failed.")
   }, [flush, siteId])
 

@@ -117,6 +117,8 @@ const inviteInput = z.object({
   email: z.string().trim().email().max(320),
   // Owners can be created only by transferring; invitations are admin or agent.
   role: z.enum(["admin", "agent"]),
+  // Team: acknowledge the per-seat charge when inviting beyond the included seats (M6-A5).
+  confirmSeatCharge: z.boolean().optional().default(false),
 })
 
 export const inviteMemberFn = createServerFn({ method: "POST" })
@@ -128,7 +130,7 @@ export const inviteMemberFn = createServerFn({ method: "POST" })
       return { ok: false as const, code: "forbidden" as const }
     }
     const { randomUUID } = await import("node:crypto")
-    const { db, and, eq, member, user, invitation } = await import("@realtr/db")
+    const { db, and, eq, member, user, invitation, count } = await import("@realtr/db")
 
     const email = data.email.toLowerCase()
     // Already a member?
@@ -139,6 +141,37 @@ export const inviteMemberFn = createServerFn({ method: "POST" })
       .where(and(eq(member.organizationId, authorization.organizationId), eq(user.email, email)))
       .limit(1)
     if (existing[0]) return { ok: false as const, code: "already_member" as const }
+
+    // Seat gate (M6-A5): a seat is a member OR a pending invitation. Solo is capped at 1; Team allows
+    // inviting past the included seats only after the owner confirms the added per-seat charge.
+    const { loadEntitlements, evaluateInvite } = await import("@realtr/core")
+    const [{ value: memberCount } = { value: 0 }] = await db
+      .select({ value: count() })
+      .from(member)
+      .where(eq(member.organizationId, authorization.organizationId))
+    const [{ value: pendingCount } = { value: 0 }] = await db
+      .select({ value: count() })
+      .from(invitation)
+      .where(
+        and(
+          eq(invitation.organizationId, authorization.organizationId),
+          eq(invitation.status, "pending"),
+        ),
+      )
+    const entitlements = await loadEntitlements(authorization.organizationId)
+    const decision = evaluateInvite({
+      entitlements,
+      usedSeats: memberCount + pendingCount,
+      confirmed: data.confirmSeatCharge,
+    })
+    if (decision.kind === "block") return { ok: false as const, code: decision.code }
+    if (decision.kind === "confirm") {
+      return {
+        ok: false as const,
+        code: "seat_charge_confirm" as const,
+        addedMonthlyCents: decision.addedMonthlyCents,
+      }
+    }
 
     const id = randomUUID()
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
@@ -221,6 +254,9 @@ export const acceptInvitationFn = createServerFn({ method: "POST" })
         userId: session.user.id,
         role: invite.role ?? "agent",
       })
+      // Team seat count changed → push the new quantity to Stripe (best-effort; M6-A5).
+      const { syncSeatsForOrg } = await import("@realtr/core")
+      await syncSeatsForOrg(invite.organizationId)
     }
     await db.update(invitation).set({ status: "accepted" }).where(eq(invitation.id, invite.id))
     return { ok: true as const }
@@ -290,6 +326,9 @@ export const removeMemberFn = createServerFn({ method: "POST" })
       return { ok: false as const, code: "forbidden" as const }
     }
     await db.delete(member).where(eq(member.id, data.memberId))
+    // Team seat count changed → push the new quantity to Stripe (best-effort; M6-A5).
+    const { syncSeatsForOrg } = await import("@realtr/core")
+    await syncSeatsForOrg(authorization.organizationId)
     return { ok: true as const }
   })
 

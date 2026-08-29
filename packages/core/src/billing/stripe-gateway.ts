@@ -100,6 +100,39 @@ export async function createBillingPortalSession(
   return { url: session.url }
 }
 
+// --- Seat quantity sync (M6-A5): push the derived Team seat count to the Stripe subscription ---
+
+/**
+ * Set the licensed quantity on a Team subscription's additional-seat line to `quantity`, adding the
+ * line if it is missing and quantity > 0, or removing it (deleting the line) when quantity is 0.
+ * Stripe prorates the change. Standalone (not on BillingGateway) so it adds no surface to the fakes.
+ */
+export async function syncSubscriptionSeatQuantity(
+  config: StripeConfig,
+  input: { subscriptionId: string; seatPriceId: string; quantity: number },
+): Promise<void> {
+  const stripe = new Stripe(config.secretKey, { apiVersion: STRIPE_API_VERSION })
+  const sub = await stripe.subscriptions.retrieve(input.subscriptionId)
+  const seatItem = sub.items.data.find((item) => item.price.id === input.seatPriceId)
+
+  if (!seatItem) {
+    if (input.quantity <= 0) return // no seat line and none needed
+    await stripe.subscriptionItems.create({
+      subscription: input.subscriptionId,
+      price: input.seatPriceId,
+      quantity: input.quantity,
+    })
+    return
+  }
+  if (input.quantity <= 0) {
+    await stripe.subscriptionItems.del(seatItem.id)
+    return
+  }
+  if (seatItem.quantity !== input.quantity) {
+    await stripe.subscriptionItems.update(seatItem.id, { quantity: input.quantity })
+  }
+}
+
 // --- Webhook adapter (M6-A3): the Stripe side of the pure convergence in webhook.ts ---
 
 /** Pull a Stripe id off a field that Stripe returns as either the id string or the expanded object. */

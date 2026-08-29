@@ -23,6 +23,7 @@ export type PublishedPageData =
     }
   | { status: "redirect"; href: string; permanent: boolean }
   | { status: "not_found" }
+  | { status: "suspended" }
   | { status: "error" }
 
 function toFeatured(row: {
@@ -70,6 +71,11 @@ const loadPublishedPage = createServerFn({ method: "GET" })
     if (result.status === "not_found") {
       setResponseStatus(404)
       return { status: "not_found" }
+    }
+    if (result.status === "suspended") {
+      // Subscription lapsed: the content is intact but not served. 402 signals the billing cause.
+      setResponseStatus(402)
+      return { status: "suspended" }
     }
 
     const resolution = resolvePage(result.document as unknown as SiteDocumentV1, path)
@@ -147,6 +153,9 @@ function Unavailable({ message }: { message: string }) {
 
 export function PublishedPage({ data }: { data: PublishedPageData }) {
   if (data.status === "error") {
+    return <Unavailable message="This site is temporarily unavailable." />
+  }
+  if (data.status === "suspended") {
     return <Unavailable message="This site is temporarily unavailable." />
   }
 
