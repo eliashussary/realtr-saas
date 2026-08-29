@@ -42,8 +42,11 @@ export {
   getCrm,
   type CrmProvider,
   type CrmContext,
+  type ConnectionResult,
+  type PushResult,
   type Lead,
 } from "./integrations/crm"
+export { sendEmail, type EmailMessage } from "./email"
 export {
   runListingSync,
   type ListingSyncRepository,
@@ -53,10 +56,14 @@ export {
 } from "./integrations/sync"
 export {
   LISTING_SOURCE_KIND,
+  CRM_KIND,
   type StoredIntegrationConfig,
   encryptIntegrationConfig,
   decryptIntegrationConfig,
   loadListingSourceConfig,
   listConnectedListingSources,
+  loadCrmConfig,
+  loadConnectedCrm,
 } from "./integrations/config"
 export { captureLead, type CaptureLeadInput, type CaptureLeadResult } from "./leads"
+export { runLeadDelivery } from "./leads-delivery"

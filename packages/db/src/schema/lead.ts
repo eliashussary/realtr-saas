@@ -25,11 +25,20 @@ export const lead = pgTable(
     message: text(),
     consent: boolean().notNull().default(false),
     pagePath: text(),
+    // Notification: when the realtor was emailed about this lead (null = not yet). Guards re-send.
+    notifiedAt: timestamp(),
+    // CRM delivery (store-before-deliver): the worker delivers pending leads to the connected CRM.
+    deliveryStatus: text().notNull().default("pending"), // pending | delivered | failed | skipped
+    deliveredAt: timestamp(),
+    deliveryError: text(),
+    crmExternalId: text(), // the CRM's record id, for traceability + idempotency
     createdAt: timestamp().notNull().defaultNow(),
     updatedAt: timestamp().notNull().defaultNow(),
   },
   (t) => [
     index("lead_org_created_idx").on(t.organizationId, t.createdAt),
     index("lead_org_assigned_idx").on(t.organizationId, t.assignedMemberId),
+    // The worker sweeps unprocessed leads (notification pending or CRM delivery pending).
+    index("lead_delivery_idx").on(t.deliveryStatus),
   ],
 )

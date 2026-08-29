@@ -9,7 +9,13 @@ import { Toaster } from "@realtr/ui/components/sonner"
 import { createFileRoute, useRouter } from "@tanstack/react-router"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
-import { type LeadListItem, assignLeadFn, listLeadsFn, updateLeadStatusFn } from "../server/leads"
+import {
+  type LeadListItem,
+  assignLeadFn,
+  listLeadsFn,
+  retryLeadDeliveryFn,
+  updateLeadStatusFn,
+} from "../server/leads"
 
 const UNASSIGNED = "__unassigned__"
 
@@ -32,6 +38,20 @@ const STATUS_TONE: Record<string, string> = {
   qualified: "bg-accent/15 text-foreground",
   won: "bg-success/15 text-success",
   lost: "bg-secondary text-muted-foreground",
+}
+
+// CRM delivery state. 'skipped' means no CRM connected — shown muted, not as a problem.
+const DELIVERY_TONE: Record<string, string> = {
+  delivered: "bg-success/15 text-success",
+  pending: "bg-secondary text-muted-foreground",
+  failed: "bg-destructive/15 text-destructive",
+  skipped: "bg-secondary text-muted-foreground",
+}
+const DELIVERY_LABEL: Record<string, string> = {
+  delivered: "Delivered",
+  pending: "Pending",
+  failed: "Failed",
+  skipped: "—",
 }
 
 function timeAgo(iso: string): string {
@@ -88,6 +108,18 @@ function LeadsPage() {
       toast.success(assignedMemberId ? "Lead reassigned." : "Lead unassigned.")
     } else {
       toast.error("Could not reassign the lead.")
+    }
+  }
+
+  async function retryDelivery(it: LeadListItem) {
+    setBusyId(it.id)
+    const res = await retryLeadDeliveryFn({ data: { leadId: it.id } })
+    setBusyId(null)
+    if (res.ok) {
+      await router.invalidate()
+      toast.success("Delivery re-queued.")
+    } else {
+      toast.error("Could not retry delivery.")
     }
   }
 
@@ -152,6 +184,7 @@ function LeadsPage() {
                 <th className="px-3 py-2">Source</th>
                 <th className="px-3 py-2">Received</th>
                 <th className="px-3 py-2">Status</th>
+                <th className="px-3 py-2">Delivery</th>
                 {canAssign ? <th className="px-3 py-2">Assigned</th> : null}
               </tr>
             </thead>
@@ -212,6 +245,26 @@ function LeadsPage() {
                         {it.status}
                       </span>
                     )}
+                  </td>
+                  <td className="px-3 py-3">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${DELIVERY_TONE[it.deliveryStatus] ?? "bg-secondary"}`}
+                        title={it.deliveryStatus === "skipped" ? "No CRM connected" : undefined}
+                      >
+                        {DELIVERY_LABEL[it.deliveryStatus] ?? it.deliveryStatus}
+                      </span>
+                      {canAssign && it.deliveryStatus === "failed" ? (
+                        <button
+                          type="button"
+                          onClick={() => retryDelivery(it)}
+                          disabled={busyId === it.id}
+                          className="text-xs text-brand hover:underline disabled:opacity-40"
+                        >
+                          Retry
+                        </button>
+                      ) : null}
+                    </div>
                   </td>
                   {canAssign ? (
                     <td className="px-3 py-3">

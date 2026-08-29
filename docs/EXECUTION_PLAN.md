@@ -85,7 +85,7 @@ product capabilities it gates.
 | M2 Site builder + publishing | done | pages/nav/SEO, draft/publish + rollback, Puck editor, theme/settings editor, 2 templates, sitemap/robots/JSON-LD |
 | M3 Listings + DDF | done | client, sync engine, persistence, scheduling, connect UI, public rendering, ops console. Post-MVP **M3-B Technology-Provider** track (deduped feed, per-`DestinationId` entitlement) still open (ADR 0006) |
 | M3.5 Listings mgmt + teams (this session) | done | sidebar dashboard, dark mode, featured listings, exclusive listings + S3 asset upload, RBAC/invitations/agent profiles + Team block |
-| M4 Leads + CRM | in progress | **Capture** (contact + listing-inquiry forms, store-before-deliver, honeypot/rate-limit/consent), **inbox** (role-scoped list + status pipeline), and **distribution** (auto-route listing inquiries to the listing's agent; owner/admin manual reassign) shipped and verified. Remaining: Follow Up Boss delivery + retain-on-failure, and new-lead notification email |
+| M4 Leads + CRM | done | Capture (contact + listing-inquiry forms, store-before-deliver, honeypot/rate-limit/consent), inbox (role-scoped list + status pipeline + delivery status/retry), distribution (auto-route to listing agent; owner/admin reassign), **new-lead notification email** (worker sweep), and **Follow Up Boss delivery** (connect/test UI, worker delivery with retain-on-failure + retry) shipped and verified. Prod email transport (Resend) still a stub shared with M1 magic links |
 | M5 Domains | partial | resolution, on-demand TLS, platform subdomains, secured add/remove. Verification/status automation + production host strategy remain |
 | M6 Billing + entitlements | not started | |
 | M7 Operations + launch | partial | super-admin sync console exists; broader reliability/launch hardening remains |
@@ -230,11 +230,21 @@ notification email remain. Shipped:
   (`new→contacted→qualified→won→lost`) via `updateLeadStatusFn`, filter, empty states. Repo gained
   `updateLeadStatus` (optional agent-scoped write).
 
-Remaining work packages:
+Also shipped:
 
-- Follow Up Boss provider implementation with connection test, idempotency, retries, and delivery
-  status; retain the lead locally when CRM delivery fails (the `CrmProvider` seam + `fub` stub exist)
-- new-lead notification email (needs the same production email transport as M1 magic links)
+- **Notification + delivery** run in the worker via a 1-minute pg-boss sweep (`runLeadDelivery`):
+  it emails the realtor (owner + assigned agent) once (`notifiedAt` guard) and delivers to the
+  connected CRM, persisting `deliveryStatus` (pending/delivered/failed/skipped) so failures are
+  visible in the inbox and retryable (owner/admin `retryLeadDelivery`). Store-before-deliver holds:
+  a failed CRM push retains the lead.
+- **Follow Up Boss** — `pushLead`/`testConnection` against the real API (Basic auth, injectable
+  fetch, offline contract tests), a connect/test/disconnect card on the Integrations page, and
+  encrypted per-tenant config reusing the `integration` table (`kind="crm"`).
+
+Remaining / deferred:
+
+- production email transport (Resend) — `sendEmail` logs today; wire the real provider (shared with
+  M1 magic links). Marked with a `ponytail:` note in `packages/core/src/email.ts`
 - privacy/consent surfaces suitable for Canadian customers, informed by legal review (a consent
   checkbox is captured today; retention rules and a policy surface are not)
 

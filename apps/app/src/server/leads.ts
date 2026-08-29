@@ -18,6 +18,7 @@ export interface LeadListItem {
   status: string
   pagePath: string | null
   assignedMemberId: string | null
+  deliveryStatus: string
   createdAt: string
 }
 
@@ -90,6 +91,7 @@ export const listLeadsFn = createServerFn({ method: "GET" })
       status: r.status,
       pagePath: r.pagePath,
       assignedMemberId: r.assignedMemberId,
+      deliveryStatus: r.deliveryStatus,
       createdAt: r.createdAt.toISOString(),
     }))
     return {
@@ -170,6 +172,24 @@ export const assignLeadFn = createServerFn({ method: "POST" })
       data.leadId,
       data.assignedMemberId,
     )
+    if (changed === 0) return { ok: false as const, code: "not_found" as const }
+    return { ok: true as const }
+  })
+
+const retryInput = z.object({ leadId: z.string().uuid() })
+
+/** Re-queue a failed CRM delivery. Owner/admin only; the worker picks it up on its next sweep. */
+export const retryLeadDeliveryFn = createServerFn({ method: "POST" })
+  .validator((input: unknown) => retryInput.parse(input))
+  .handler(async ({ data }) => {
+    const authorization = await resolveAuthorizationOrNull()
+    if (!authorization) return { ok: false as const, code: "unauthorized" as const }
+    if (!can(authorization.role, "lead", "assign")) {
+      return { ok: false as const, code: "forbidden" as const }
+    }
+    const { db } = await import("@realtr/db")
+    const { retryLeadDelivery } = await import("@realtr/db/leads")
+    const changed = await retryLeadDelivery(db, authorization.organizationId, data.leadId)
     if (changed === 0) return { ok: false as const, code: "not_found" as const }
     return { ok: true as const }
   })

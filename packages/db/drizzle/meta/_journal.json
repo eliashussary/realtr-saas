@@ -92,6 +92,13 @@
       "when": 1787962084327,
       "tag": "0012_giant_black_panther",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1787972115190,
+      "tag": "0013_material_psylocke",
+      "breakpoints": true
     }
   ]
 }

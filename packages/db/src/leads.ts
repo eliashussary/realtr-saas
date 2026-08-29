@@ -1,6 +1,6 @@
-import { and, desc, eq } from "drizzle-orm"
+import { and, desc, eq, isNull, or } from "drizzle-orm"
 import type { NodePgDatabase } from "drizzle-orm/node-postgres"
-import { lead } from "./schema"
+import { lead, member, user } from "./schema"
 import type * as schema from "./schema"
 
 // Minimal lead repository — the M4 seam. Store-before-deliver and per-agent assignment are modeled
@@ -70,6 +70,88 @@ export async function assignLead(
     .set({ assignedMemberId, updatedAt: new Date() })
     .where(and(eq(lead.organizationId, organizationId), eq(lead.id, id)))
   return result.rowCount ?? 0
+}
+
+// ── Delivery + notification (M4 worker sweep) ─────────────────────────────────────────────────
+
+/** Leads still needing notification (notifiedAt null) or CRM delivery (deliveryStatus pending). */
+export async function listUnprocessedLeads(database: LeadDatabase, limit = 50) {
+  return database
+    .select()
+    .from(lead)
+    .where(or(isNull(lead.notifiedAt), eq(lead.deliveryStatus, "pending")))
+    .orderBy(lead.createdAt)
+    .limit(limit)
+}
+
+/** Claim a lead for notification: sets notifiedAt only if unset. rowCount 1 = this caller won. */
+export async function claimLeadNotification(database: LeadDatabase, id: string): Promise<boolean> {
+  const result = await database
+    .update(lead)
+    .set({ notifiedAt: new Date() })
+    .where(and(eq(lead.id, id), isNull(lead.notifiedAt)))
+  return (result.rowCount ?? 0) > 0
+}
+
+export interface DeliveryUpdate {
+  status: "delivered" | "failed" | "skipped"
+  externalId?: string | null
+  error?: string | null
+}
+
+export async function setLeadDelivery(
+  database: LeadDatabase,
+  id: string,
+  update: DeliveryUpdate,
+): Promise<void> {
+  await database
+    .update(lead)
+    .set({
+      deliveryStatus: update.status,
+      deliveredAt: update.status === "delivered" ? new Date() : null,
+      crmExternalId: update.externalId ?? null,
+      deliveryError: update.error ?? null,
+      updatedAt: new Date(),
+    })
+    .where(eq(lead.id, id))
+}
+
+/** Re-queue a failed delivery (owner/admin action). Only 'failed' leads can be retried. */
+export async function retryLeadDelivery(
+  database: LeadDatabase,
+  organizationId: string,
+  id: string,
+): Promise<number> {
+  const result = await database
+    .update(lead)
+    .set({ deliveryStatus: "pending", deliveryError: null, updatedAt: new Date() })
+    .where(
+      and(
+        eq(lead.organizationId, organizationId),
+        eq(lead.id, id),
+        eq(lead.deliveryStatus, "failed"),
+      ),
+    )
+  return result.rowCount ?? 0
+}
+
+/** Emails to notify about a new lead: the org owner plus the assigned agent (if any), deduped. */
+export async function leadNotificationRecipients(
+  database: LeadDatabase,
+  organizationId: string,
+  assignedMemberId: string | null,
+): Promise<string[]> {
+  const rows = await database
+    .select({ email: user.email, role: member.role, memberId: member.id })
+    .from(member)
+    .innerJoin(user, eq(user.id, member.userId))
+    .where(eq(member.organizationId, organizationId))
+  const emails = new Set<string>()
+  for (const r of rows) {
+    if (r.role === "owner") emails.add(r.email)
+    if (assignedMemberId && r.memberId === assignedMemberId) emails.add(r.email)
+  }
+  return [...emails]
 }
 
 // new -> working -> outcome. Kept as a constant so the UI and repo agree on the vocabulary.

@@ -10,4 +10,10 @@ export function getCrm(provider: string): CrmProvider | undefined {
   return crmRegistry[provider]
 }
 
-export type { CrmContext, CrmProvider, Lead } from "./types"
+export type {
+  ConnectionResult,
+  CrmContext,
+  CrmProvider,
+  Lead,
+  PushResult,
+} from "./types"

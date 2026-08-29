@@ -1,5 +1,10 @@
 import { type Server, createServer } from "node:http"
-import { getSource, listConnectedListingSources, loadListingSourceConfig } from "@realtr/core"
+import {
+  getSource,
+  listConnectedListingSources,
+  loadListingSourceConfig,
+  runLeadDelivery,
+} from "@realtr/core"
 import { db } from "@realtr/db"
 import { createListingRepository } from "@realtr/db/listings"
 import PgBoss from "pg-boss"
@@ -15,6 +20,10 @@ import { LISTINGS_SYNC_QUEUE, handleListingsSync } from "./listings-sync"
 // master-list reconciliation. Times are UTC.
 const INCREMENTAL_CRON = "15 * * * *"
 const RECONCILE_CRON = "30 23 * * *"
+
+// Lead notification + CRM delivery: sweep unprocessed leads every minute (store-before-deliver).
+const LEAD_DELIVERY_QUEUE = "lead-delivery"
+const LEAD_DELIVERY_CRON = "* * * * *"
 
 export interface WorkerRuntime {
   start(): Promise<void>
@@ -115,6 +124,17 @@ export function createWorkerRuntime(environment: WorkerEnvironment): WorkerRunti
         version: 1,
         mode: "reconcile",
       })
+
+      // Lead delivery: one idempotent sweep per minute (notify realtor + deliver to CRM).
+      await boss.createQueue(LEAD_DELIVERY_QUEUE, {
+        name: LEAD_DELIVERY_QUEUE,
+        retryLimit: 3,
+        retryDelay: 30,
+      })
+      await boss.work<unknown>(LEAD_DELIVERY_QUEUE, async () => {
+        await runLeadDelivery({ log })
+      })
+      await boss.schedule(LEAD_DELIVERY_QUEUE, LEAD_DELIVERY_CRON, { version: 1 })
 
       await listen(healthServer, environment.healthPort)
       started = true

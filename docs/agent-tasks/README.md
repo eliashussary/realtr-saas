@@ -86,8 +86,12 @@ for the authoritative summary):
   `updateLeadStatus`; listings repo gained `resolveListingRef`. CRM delivery + notification email are
   the remaining M4 pieces.
 
-Suggested next packets: M4 Follow Up Boss delivery (retain-on-failure) + new-lead notification email;
-M5 domain verification/status automation; M6 billing; ADR 0007 (asset storage) and an RBAC ADR.
+M4 is now complete: notification email + Follow Up Boss delivery landed via a 1-minute worker sweep
+(`runLeadDelivery`) with per-lead `deliveryStatus` and inbox retry; FUB connect UI + provider (real
+API, offline contract tests) shipped.
+
+Suggested next packets: production email transport (Resend, shared with M1 magic links); M5 domain
+verification/status automation; M6 billing; ADR 0007 (asset storage) and an RBAC ADR.
 
 ## Dispatch prompt
 

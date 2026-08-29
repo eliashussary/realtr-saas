@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router"
+import { CrmCard } from "../components/crm-card"
 import { ListingsCard } from "../components/listings-card"
 
 export const Route = createFileRoute("/_dashboard/integrations")({
@@ -12,8 +13,9 @@ function IntegrationsPage() {
       <p className="mt-2 text-muted-foreground">
         Connect the services that power your site. More sources and CRMs are coming.
       </p>
-      <div className="mt-8">
+      <div className="mt-8 flex flex-col gap-6">
         <ListingsCard />
+        <CrmCard />
       </div>
     </main>
   )
