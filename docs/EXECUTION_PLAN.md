@@ -380,7 +380,9 @@ workstreams. The first needed decisions are:
 - UI system and visual quality workflow (proposal: `docs/decisions/0001-ui-system.md`) — accepted
 - user-supplied templates: tiered approach, code templates deferred
   ([ADR 0005](decisions/0005-user-supplied-templates.md), accepted)
-- deployment target beyond the current single-host Docker topology — open
+- reverse proxy, custom-domain TLS, and deployment scale-out path
+  ([ADR 0007](decisions/0007-deployment-topology-and-tls.md), accepted: Caddy on-demand TLS now,
+  phased state-externalizing path to multi-node, Cloudflare-for-SaaS as the scale upgrade)
 
 An ADR should state context, decision, alternatives considered, consequences, and follow-up work.
 Do not use an ADR to postpone a local, easily reversible implementation detail.
