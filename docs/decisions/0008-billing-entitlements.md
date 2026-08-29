@@ -169,6 +169,22 @@ rework. Realtr calculates/collects via Stripe when enabled; it does not file or 
    Stripe quantity) and the invite-beyond-included confirm-charge flow.
 6. **M6-A6** ops: tenant↔customer reconciliation, event history, comp/extend in super-admin console.
 
+## Implementation notes (as built)
+
+- **Lapse is a serve-time gate, not a publication-pointer clear.** A5 gates public serving on
+  entitlements inside `resolvePublishedSite` (the single host→org resolver), which returns
+  `suspended` for a lapsed/canceled tenant; the renderer serves a 402 holding page. Publication state
+  is left untouched, so reactivation (the A3 recovery webhook flipping status back to active) restores
+  the site immediately with no revision surgery. This realizes the ADR's outcome ("site unpublished
+  when lapsed; reactivation restores immediately") more simply and losslessly than clearing the
+  pointer, and keeps billing state and content state separate. `Entitlements.siteServed` encodes it
+  (true through grace, false once lapsed/canceled).
+- **No blanket read-only dashboard at past_due.** Enforcement is at the named capability seams
+  (publish, add-domain, connect-integration, invite-member, serve, leads), not a global lock — the
+  billing page must stay usable so a past_due tenant can recover.
+- **A comp is a Stripe coupon, not a local override.** The A6 console offers grace *extension* (a
+  local concept that doesn't fight the webhook re-fetch model), not a local status override.
+
 ## Owner decisions (resolved 2026-08-29)
 
 - Pricing (Option B): **Solo $129/mo**, **Team $299/mo** (5 included seats) **+ $49/additional seat**

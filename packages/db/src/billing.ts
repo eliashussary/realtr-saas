@@ -1,6 +1,6 @@
-import { and, eq, lt } from "drizzle-orm"
+import { and, desc, eq, lt } from "drizzle-orm"
 import type { NodePgDatabase } from "drizzle-orm/node-postgres"
-import { billingEvent, subscription } from "./schema"
+import { billingEvent, organization, subscription } from "./schema"
 import type * as schema from "./schema"
 
 // Subscription mirror repository (M6). The full lifecycle is written by webhooks (M6-A3); M6-A2 only
@@ -156,4 +156,77 @@ export function createGraceSweepRepository(database: BillingDatabase) {
         )
     },
   }
+}
+
+// --- Support reconciliation (M6-A6): read-side + one operational action for the super-admin console ---
+
+export interface AdminSubscriptionRow {
+  organizationId: string
+  organizationName: string
+  status: string
+  planId: string
+  stripeCustomerId: string | null
+  stripeSubscriptionId: string | null
+  seatQuantity: number
+  currentPeriodEnd: Date | null
+  cancelAtPeriodEnd: boolean
+  graceEndsAt: Date | null
+}
+
+/** Every tenant's subscription mirror joined to its org, for reconciliation (tenant ↔ Stripe). */
+export async function listSubscriptionsForAdmin(
+  database: BillingDatabase,
+): Promise<AdminSubscriptionRow[]> {
+  return database
+    .select({
+      organizationId: subscription.organizationId,
+      organizationName: organization.name,
+      status: subscription.status,
+      planId: subscription.planId,
+      stripeCustomerId: subscription.stripeCustomerId,
+      stripeSubscriptionId: subscription.stripeSubscriptionId,
+      seatQuantity: subscription.seatQuantity,
+      currentPeriodEnd: subscription.currentPeriodEnd,
+      cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+      graceEndsAt: subscription.graceEndsAt,
+    })
+    .from(subscription)
+    .innerJoin(organization, eq(organization.id, subscription.organizationId))
+    .orderBy(organization.name)
+}
+
+/** The most recent Stripe events applied for an org (the event history for reconciliation). */
+export async function recentBillingEvents(
+  database: BillingDatabase,
+  organizationId: string,
+  limit = 10,
+): Promise<Array<{ stripeEventId: string; type: string; receivedAt: Date }>> {
+  return database
+    .select({
+      stripeEventId: billingEvent.stripeEventId,
+      type: billingEvent.type,
+      receivedAt: billingEvent.receivedAt,
+    })
+    .from(billingEvent)
+    .where(eq(billingEvent.organizationId, organizationId))
+    .orderBy(desc(billingEvent.receivedAt))
+    .limit(limit)
+}
+
+/**
+ * Operational grace extension (support "give them more time"): push a past_due tenant's grace deadline
+ * out so the sweep won't lapse them yet. Guarded to past_due; grace is a local concept, so this does
+ * not fight Stripe (a real comp is a Stripe coupon, out of local scope).
+ */
+export async function extendSubscriptionGrace(
+  database: BillingDatabase,
+  organizationId: string,
+  graceEndsAt: Date,
+): Promise<void> {
+  await database
+    .update(subscription)
+    .set({ graceEndsAt, updatedAt: new Date() })
+    .where(
+      and(eq(subscription.organizationId, organizationId), eq(subscription.status, "past_due")),
+    )
 }

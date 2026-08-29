@@ -7,10 +7,9 @@ Progress snapshot (2026-08-28): M0–M3 are implemented and verified in-app; the
 listing sync, and public listing pages work end-to-end. Built on top since: a sidebar dashboard,
 featured listings, **exclusive (manual) listings** with **S3-compatible asset upload** (SeaweedFS in
 dev), **dark mode**, and **teams & users** — RBAC (owner/admin/agent via better-auth access-control),
-agent invitations, and agent profiles showcased on the site. The **lead** table + repository exist as
-the M4 seam (no capture UI yet). Not started: M4 lead capture/inbox/CRM delivery, M5 domain
-verification automation, M6 billing, M7 operations/launch hardening. See the milestone status table
-below.
+agent invitations, and agent profiles showcased on the site. Since then M4 (leads/CRM), M5 (domain
+verification automation), and M6 (billing/entitlements) have all landed — see the milestone status
+table below. Not started: M7 operations/launch hardening.
 
 ## Product outcome
 
@@ -43,8 +42,8 @@ Remaining gaps that affect sequencing:
 
 - lead capture forms, lead inbox, distribution rules, and deal-flow pipeline are unbuilt (only the
   `lead` table + repository seam exist); Follow Up Boss CRM provider is still a stub
-- domain verification/status automation and the production host/subdomain strategy are incomplete
-- billing/entitlements, product analytics, and production magic-link email are not implemented
+- the production host/subdomain strategy hardening (ADR 0007 shared cert storage, CDN) is ops-side work
+- product analytics and production magic-link email (Resend) are not implemented
 - multiple sites per organization and better-auth sub-teams are deferred (schema seams exist)
 
 ## Delivery principles
@@ -87,7 +86,7 @@ product capabilities it gates.
 | M3.5 Listings mgmt + teams (this session) | done | sidebar dashboard, dark mode, featured listings, exclusive listings + S3 asset upload, RBAC/invitations/agent profiles + Team block |
 | M4 Leads + CRM | done | Capture (contact + listing-inquiry forms, store-before-deliver, honeypot/rate-limit/consent), inbox (role-scoped list + status pipeline + delivery status/retry), distribution (auto-route to listing agent; owner/admin reassign), **new-lead notification email** (worker sweep), and **Follow Up Boss delivery** (connect/test UI, worker delivery with retain-on-failure + retry) shipped and verified. Prod email transport (Resend) still a stub shared with M1 magic links |
 | M5 Domains | partial | resolution, on-demand TLS, platform subdomains, secured add/remove. Verification/status automation + production host strategy remain |
-| M6 Billing + entitlements | in progress | ADR 0008 accepted (Stripe hosted Checkout/Portal, webhook re-fetch-and-converge, Solo/Team + per-seat, card-required trial, 7-day grace). **M6-A1 done**: subscription/billing_event mirror (migration 0014), plan catalog + pure `resolveEntitlements` in `@realtr/core`, `billing` RBAC resource — wired permissive. **M6-A2 done**: Stripe Checkout behind an injectable gateway port (offline-tested), subscription-mirror repo + customer provisioning, billing page/card + `billing:manage` gate. **M6-A3 done**: signed raw-body webhook (`/api/billing/webhook`) with event-id ledger + re-fetch-and-converge (replay- and order-safe), Stripe→local status mapping + grace-deadline anchoring, mirror upsert as the sole writer; convergence unit-tested offline + db ledger/upsert integration test. **M6-A4 done**: Customer Portal link (server fn + Stripe adapter), pure grace→lapse sweep engine + guarded repo + hourly worker job (past_due past graceEndsAt becomes lapsed), and a dunning banner on the billing page. Enforcement stays permissive (deferred to A5 by design; see M6-A4 packet). Next: A5 enforcement flip + Team seat sync, A6 ops reconciliation |
+| M6 Billing + entitlements | done | ADR 0008 accepted (Stripe hosted Checkout/Portal, webhook re-fetch-and-converge, Solo/Team + per-seat, card-required trial, 7-day grace). **M6-A1 done**: subscription/billing_event mirror (migration 0014), plan catalog + pure `resolveEntitlements` in `@realtr/core`, `billing` RBAC resource — wired permissive. **M6-A2 done**: Stripe Checkout behind an injectable gateway port (offline-tested), subscription-mirror repo + customer provisioning, billing page/card + `billing:manage` gate. **M6-A3 done**: signed raw-body webhook (`/api/billing/webhook`) with event-id ledger + re-fetch-and-converge (replay- and order-safe), Stripe→local status mapping + grace-deadline anchoring, mirror upsert as the sole writer; convergence unit-tested offline + db ledger/upsert integration test. **M6-A4 done**: Customer Portal link (server fn + Stripe adapter), pure grace→lapse sweep engine + guarded repo + hourly worker job (past_due past graceEndsAt becomes lapsed), and a dunning banner on the billing page. **M6-A5 done**: enforcement flip — one `loadEntitlements` seam gating publish/rollback, add-domain, connect-integration (CRM + DDF), invite-member, public site serving (`resolvePublishedSite` → suspended/402), and lead capture; Team seat rules (`evaluateInvite` hard-cap/confirm-charge) + best-effort Stripe seat-quantity sync on membership change. **M6-A6 done**: super-admin billing reconciliation (tenant ↔ Stripe customer/subscription + recent event history) with an extend-grace action. M6 complete. Prod email transport (Resend) still shared-stub with M1 magic links |
 | M7 Operations + launch | partial | super-admin sync console exists; broader reliability/launch hardening remains |
 
 ## Milestones

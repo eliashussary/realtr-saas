@@ -94,16 +94,18 @@ M5 (domains) landed since: state machine + DNS verification, verify wiring, the 
 re-verification worker, and the cert-issued→active transition (M5-A1..A5, ADR 0007). Remaining M5
 tails are non-core: UI status polling and active-domain auto-demotion on later DNS breakage.
 
-M6 (billing) is in progress: M6-A1 (entitlement model + resolver), M6-A2 (Stripe Checkout behind a
-gateway port), M6-A3 (signed re-fetch-and-converge webhook + mirror), and M6-A4 (Customer Portal link
-+ grace→lapse worker sweep + dunning banner) have landed. Enforcement is still wired permissive by
-design.
+M6 (billing) is complete: A1 (entitlement model + resolver), A2 (Stripe Checkout behind a gateway
+port), A3 (signed re-fetch-and-converge webhook + mirror), A4 (Customer Portal + grace→lapse worker
+sweep + dunning), A5 (the enforcement flip — one `loadEntitlements` seam gating publish, add-domain,
+connect-integration, invite-member, site serving, and lead capture; Team seat rules + Stripe seat
+sync), and A6 (super-admin billing reconciliation + extend-grace) have all landed.
 
-Suggested next packets: **M6-A5** (the enforcement flip — permissive→enforcing on publish / add-domain
-/ connect-integration / invite-member and site serving, plus Team seat-quantity sync and the
-invite-beyond-included confirm-charge flow) is the natural next slice and the one that makes the
-entitlement resolver actually gate access. Then M6-A6 (support reconciliation console). Also open:
-production email transport (Resend, shared with M1 magic links).
+Suggested next packets: **M7** (operations, reliability, launch) is the remaining milestone —
+structured logs / request+job correlation / error reporting / dashboards; backup+restore and
+migration/rollback runbooks; a security review (tenant isolation, SSRF/DNS/domain, webhooks, forms,
+key rotation); accessibility / performance / load / failure-mode testing; and privacy/terms/data-
+export/deletion + DDF launch approval. Also open: production email transport (Resend, shared with M1
+magic links); the editor-UX refactor (pages/nav as a left sidebar, template/theme as a right sidebar).
 
 ## Dispatch prompt
 

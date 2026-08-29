@@ -107,6 +107,70 @@ export const adminSyncFn = createServerFn({ method: "POST" })
     return runTenantListingSync(data.organizationId, data.mode)
   })
 
+// ── Billing reconciliation (M6-A6) ──────────────────────────────────────────────────────────────
+
+export interface AdminBillingRow {
+  organizationId: string
+  organizationName: string
+  status: string
+  planId: string
+  stripeCustomerId: string | null
+  stripeSubscriptionId: string | null
+  seatQuantity: number
+  currentPeriodEnd: string | null
+  cancelAtPeriodEnd: boolean
+  graceEndsAt: string | null
+  recentEvents: Array<{ id: string; type: string; receivedAt: string }>
+}
+
+/** Every tenant's subscription mirror + recent Stripe events, for support reconciliation. */
+export const adminListBillingFn = createServerFn({ method: "GET" }).handler(async () => {
+  if (!(await isCurrentUserSuperAdmin())) return { ok: false as const, code: "forbidden" as const }
+
+  const { listSubscriptionsForAdmin, recentBillingEvents } = await import("@realtr/db/billing")
+  const subscriptions = await listSubscriptionsForAdmin(db)
+
+  const rows: AdminBillingRow[] = []
+  for (const s of subscriptions) {
+    const events = await recentBillingEvents(db, s.organizationId, 5)
+    rows.push({
+      organizationId: s.organizationId,
+      organizationName: s.organizationName,
+      status: s.status,
+      planId: s.planId,
+      stripeCustomerId: s.stripeCustomerId,
+      stripeSubscriptionId: s.stripeSubscriptionId,
+      seatQuantity: s.seatQuantity,
+      currentPeriodEnd: s.currentPeriodEnd?.toISOString() ?? null,
+      cancelAtPeriodEnd: s.cancelAtPeriodEnd,
+      graceEndsAt: s.graceEndsAt?.toISOString() ?? null,
+      recentEvents: events.map((e) => ({
+        id: e.stripeEventId,
+        type: e.type,
+        receivedAt: e.receivedAt.toISOString(),
+      })),
+    })
+  }
+  return { ok: true as const, subscriptions: rows }
+})
+
+const adminExtendGraceInput = z.object({
+  organizationId: z.string().min(1),
+  days: z.number().int().min(1).max(90),
+})
+
+/** Extend a past_due tenant's grace deadline so the lapse sweep won't take them dark yet (super admin). */
+export const adminExtendGraceFn = createServerFn({ method: "POST" })
+  .validator((input: unknown) => adminExtendGraceInput.parse(input))
+  .handler(async ({ data }) => {
+    if (!(await isCurrentUserSuperAdmin()))
+      return { ok: false as const, code: "forbidden" as const }
+    const { extendSubscriptionGrace } = await import("@realtr/db/billing")
+    const until = new Date(Date.now() + data.days * 24 * 60 * 60 * 1000)
+    await extendSubscriptionGrace(db, data.organizationId, until)
+    return { ok: true as const, graceEndsAt: until.toISOString() }
+  })
+
 const adminPauseInput = z.object({ organizationId: z.string().min(1), paused: z.boolean() })
 
 /** Pause or resume a tenant's scheduled sync (super admin). */

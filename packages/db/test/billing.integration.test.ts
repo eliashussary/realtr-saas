@@ -2,9 +2,12 @@ import { eq } from "drizzle-orm"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
 import {
   createGraceSweepRepository,
+  extendSubscriptionGrace,
   findOrgByStripeCustomerId,
   getSubscriptionByOrg,
   hasBillingEvent,
+  listSubscriptionsForAdmin,
+  recentBillingEvents,
   recordBillingEvent,
   writeSubscriptionMirror,
 } from "../src/billing"
@@ -119,5 +122,36 @@ describe("billing webhook repository", () => {
     await writeSubscriptionMirror(database.db, mirror(withinOrg, { status: "active" }))
     await repo.markLapsed(withinOrg)
     expect((await getSubscriptionByOrg(database.db, withinOrg))?.status).toBe("active")
+  })
+
+  it("admin reconciliation: lists subscriptions with org, records events, extends grace", async () => {
+    const [alpha, beta] = await createTwoTenantFixture(database)
+    const alphaOrg = alpha?.ids.organizationId ?? ""
+    const betaOrg = beta?.ids.organizationId ?? ""
+    await writeSubscriptionMirror(database.db, mirror(alphaOrg, { status: "active" }))
+    await writeSubscriptionMirror(
+      database.db,
+      mirror(betaOrg, { status: "past_due", graceEndsAt: new Date("2026-08-30T00:00:00.000Z") }),
+    )
+    await recordBillingEvent(database.db, {
+      stripeEventId: "evt_recon",
+      type: "customer.subscription.updated",
+      organizationId: alphaOrg,
+    })
+
+    const rows = await listSubscriptionsForAdmin(database.db)
+    expect(rows).toHaveLength(2)
+    expect(rows.map((r) => r.organizationId).sort()).toEqual([alphaOrg, betaOrg].sort())
+
+    const events = await recentBillingEvents(database.db, alphaOrg, 5)
+    expect(events.map((e) => e.type)).toEqual(["customer.subscription.updated"])
+
+    // Extend grace only affects the past_due tenant.
+    const until = new Date("2026-09-15T00:00:00.000Z")
+    await extendSubscriptionGrace(database.db, betaOrg, until)
+    expect((await getSubscriptionByOrg(database.db, betaOrg))?.graceEndsAt).toEqual(until)
+    // Guarded to past_due: an active tenant's grace is untouched.
+    await extendSubscriptionGrace(database.db, alphaOrg, until)
+    expect((await getSubscriptionByOrg(database.db, alphaOrg))?.graceEndsAt).toBeNull()
   })
 })
