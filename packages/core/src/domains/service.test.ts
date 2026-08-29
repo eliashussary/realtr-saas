@@ -77,3 +77,42 @@ describe("runDomainVerification", () => {
     ).rejects.toBeInstanceOf(DomainNotFoundError)
   })
 })
+
+import { type DomainCertRepository, approveForCertificate } from "./service"
+
+class MemoryCertDomains implements DomainCertRepository {
+  constructor(private rows: Array<{ id: string; hostname: string; status: string }>) {}
+  async findByHostname(hostname: string) {
+    const row = this.rows.find((r) => r.hostname === hostname)
+    return row ? { id: row.id, status: row.status } : null
+  }
+  async setStatus(id: string, status: string) {
+    const row = this.rows.find((r) => r.id === id)
+    if (row) row.status = status
+  }
+}
+
+describe("approveForCertificate", () => {
+  it("approves a verified domain and promotes it to active", async () => {
+    const repo = new MemoryCertDomains([{ id: "d1", hostname: "www.x.com", status: "verified" }])
+    expect(await approveForCertificate("www.x.com", repo)).toBe(true)
+    expect(await repo.findByHostname("www.x.com")).toMatchObject({ status: "active" })
+  })
+
+  it("approves an already-active domain without changing it (idempotent)", async () => {
+    const repo = new MemoryCertDomains([{ id: "d1", hostname: "www.x.com", status: "active" }])
+    expect(await approveForCertificate("www.x.com", repo)).toBe(true)
+    expect(await repo.findByHostname("www.x.com")).toMatchObject({ status: "active" })
+  })
+
+  it("denies pending/error/unknown domains and leaves their state", async () => {
+    const repo = new MemoryCertDomains([
+      { id: "d1", hostname: "pending.x.com", status: "pending" },
+      { id: "d2", hostname: "error.x.com", status: "error" },
+    ])
+    expect(await approveForCertificate("pending.x.com", repo)).toBe(false)
+    expect(await approveForCertificate("error.x.com", repo)).toBe(false)
+    expect(await approveForCertificate("unknown.x.com", repo)).toBe(false)
+    expect(await repo.findByHostname("pending.x.com")).toMatchObject({ status: "pending" })
+  })
+})

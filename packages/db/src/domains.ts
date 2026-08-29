@@ -38,6 +38,15 @@ export function createDomainRepository(database: DomainDatabase) {
       return row ?? null
     },
 
+    async findByHostname(hostname: string): Promise<{ id: string; status: string } | null> {
+      const [row] = await database
+        .select({ id: domain.id, status: domain.status })
+        .from(domain)
+        .where(eq(domain.hostname, hostname))
+        .limit(1)
+      return row ?? null
+    },
+
     async setStatus(domainId: string, status: string): Promise<void> {
       await database
         .update(domain)

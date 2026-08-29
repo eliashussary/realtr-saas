@@ -1,4 +1,10 @@
-import { type DomainState, afterVerification, canTransition, isDomainState } from "./state-machine"
+import {
+  type DomainState,
+  afterVerification,
+  canTransition,
+  isCertEligible,
+  isDomainState,
+} from "./state-machine"
 import { type DnsResolver, verifyDomain } from "./verify"
 
 // Verification service: run a DNS check for a domain and persist the resulting lifecycle state. Kept
@@ -74,4 +80,29 @@ export async function runDomainVerification(
     pointing: result.pointing,
     reason: result.reason,
   }
+}
+
+// --- Certificate approval (backs Caddy's on-demand TLS `ask` endpoint) ---
+
+export interface DomainCertRepository {
+  findByHostname(hostname: string): Promise<{ id: string; status: string } | null>
+  setStatus(id: string, status: DomainState): Promise<void>
+}
+
+/**
+ * Decide whether a host may receive a TLS certificate, and record cert issuance. Called at the
+ * moment Caddy is about to issue an on-demand cert: only `verified`/`active` domains are approved,
+ * and a `verified` domain transitions to `active` here (cert issued + being served). Idempotent —
+ * an already-`active` domain simply stays approved.
+ */
+export async function approveForCertificate(
+  hostname: string,
+  repository: DomainCertRepository,
+): Promise<boolean> {
+  const row = await repository.findByHostname(hostname)
+  if (!row) return false
+  const state: DomainState = isDomainState(row.status) ? row.status : "pending"
+  if (!isCertEligible(state)) return false
+  if (state === "verified") await repository.setStatus(row.id, "active")
+  return true
 }

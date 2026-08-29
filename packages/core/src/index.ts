@@ -26,11 +26,14 @@ export {
 export {
   type DomainRecord,
   type DomainRepository,
+  type DomainCertRepository,
   type DomainVerificationOutcome,
   DomainNotFoundError,
   runDomainVerification,
+  approveForCertificate,
 } from "./domains/service"
 export { nodeDnsResolver } from "./domains/resolver"
+export { approveDomainForCertificate } from "./domains/certificates"
 export { resolvePreview } from "./preview"
 export { resolvePublishedSite, type PublishedSiteResult } from "./published"
 export {

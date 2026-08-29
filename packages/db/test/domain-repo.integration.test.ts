@@ -64,4 +64,14 @@ describe("domain repository", () => {
     const repository = createDomainRepository(database.db)
     expect(await repository.getDomain(randomUUID())).toBeNull()
   })
+
+  it("finds a domain by hostname (backs cert approval)", async () => {
+    const [alpha] = await createTwoTenantFixture(database)
+    const domainId = await seedDomain(alpha?.ids.organizationId ?? "", "vanity.example.com")
+    const repository = createDomainRepository(database.db)
+
+    const found = await repository.findByHostname("vanity.example.com")
+    expect(found).toEqual({ id: domainId, status: "pending" })
+    expect(await repository.findByHostname("nope.example.com")).toBeNull()
+  })
 })

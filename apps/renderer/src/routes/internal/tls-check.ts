@@ -7,9 +7,11 @@ export const Route = createFileRoute("/internal/tls-check")({
   server: {
     handlers: {
       GET: async ({ request }) => {
-        const { isServableDomain } = await import("@realtr/core")
+        // approveDomainForCertificate gates issuance to verified/active domains AND promotes a
+        // verified domain to active (the cert is now issued + the host served).
+        const { approveDomainForCertificate } = await import("@realtr/core")
         const domain = new URL(request.url).searchParams.get("domain") ?? ""
-        const ok = domain.length > 0 && (await isServableDomain(domain))
+        const ok = domain.length > 0 && (await approveDomainForCertificate(domain))
         return new Response(ok ? "ok" : "denied", {
           status: ok ? 200 : 404,
           headers: { "content-type": "text/plain" },
