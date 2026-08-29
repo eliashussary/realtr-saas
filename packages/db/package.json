@@ -11,7 +11,8 @@
     "./assets": "./src/assets.ts",
     "./agent-profiles": "./src/agent-profiles.ts",
     "./leads": "./src/leads.ts",
-    "./billing": "./src/billing.ts"
+    "./billing": "./src/billing.ts",
+    "./domains": "./src/domains.ts"
   },
   "scripts": {
     "db:generate": "drizzle-kit generate",

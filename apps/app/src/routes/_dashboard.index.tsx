@@ -12,6 +12,7 @@ import { Link, createFileRoute, redirect, useRouter } from "@tanstack/react-rout
 import { type FormEvent, type ReactNode, useState } from "react"
 import { toast } from "sonner"
 import { LocalTime } from "../components/local-time"
+import { getDomainSetupFn, verifyDomainFn } from "../server/domains"
 import { discardDraftFn, rollbackSiteFn } from "../server/site-fns"
 import {
   type DashboardSite,
@@ -275,27 +276,24 @@ function DomainList({
       {domains.length === 0 ? (
         <p className="mt-1 text-sm text-muted-foreground">No domains yet.</p>
       ) : (
-        <ul className="mt-2 flex flex-col gap-1">
+        <ul className="mt-2 flex flex-col gap-2">
           {domains.map((d) => (
-            <li key={d.hostname} className="flex items-center gap-2 text-sm">
-              <span className="font-medium">{d.hostname}</span>
-              <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
-                {d.status}
-              </span>
-              {d.isPrimary ? <span className="text-xs text-brand">primary</span> : null}
-              {custom.includes(d) ? (
-                <button
-                  type="button"
-                  onClick={() => setPending(d.hostname)}
-                  className="text-xs text-red-600 hover:underline"
-                >
-                  Remove
-                </button>
-              ) : null}
-            </li>
+            <DomainRow
+              key={d.hostname}
+              siteId={siteId}
+              domain={d}
+              isCustom={custom.includes(d)}
+              onRemove={() => setPending(d.hostname)}
+            />
           ))}
         </ul>
       )}
+      {custom.length > 0 ? (
+        <p className="mt-2 text-xs text-muted-foreground">
+          A custom domain isn't served until it's verified. Add the DNS records shown under “DNS
+          setup”, then click Verify.
+        </p>
+      ) : null}
       <ConfirmDialog
         open={pending !== null}
         onOpenChange={(open) => !open && setPending(null)}
@@ -311,6 +309,107 @@ function DomainList({
         onConfirm={confirm}
       />
     </div>
+  )
+}
+
+function DomainRow({
+  siteId,
+  domain,
+  isCustom,
+  onRemove,
+}: {
+  siteId: string
+  domain: DashboardSite["domains"][number]
+  isCustom: boolean
+  onRemove: () => void
+}) {
+  const router = useRouter()
+  const [busy, setBusy] = useState<"verify" | "setup" | null>(null)
+  const [instructions, setInstructions] = useState<Array<{
+    type: string
+    name: string
+    value: string
+  }> | null>(null)
+
+  async function verify() {
+    setBusy("verify")
+    const res = await verifyDomainFn({ data: { siteId, hostname: domain.hostname } })
+    setBusy(null)
+    if (!res.ok) {
+      toast.error(res.code === "forbidden" ? "You can't manage domains." : "Could not verify.")
+      return
+    }
+    if (res.verified) {
+      toast.success(`${domain.hostname} verified — it'll be served shortly.`)
+      await router.invalidate()
+    } else {
+      toast.error(res.reason ?? "Not verified yet. Check the DNS records.")
+    }
+  }
+
+  async function toggleSetup() {
+    if (instructions) {
+      setInstructions(null)
+      return
+    }
+    setBusy("setup")
+    const res = await getDomainSetupFn({ data: { siteId, hostname: domain.hostname } })
+    setBusy(null)
+    if (res.ok) setInstructions(res.instructions)
+    else toast.error("Could not load DNS setup.")
+  }
+
+  return (
+    <li className="flex flex-col gap-1 text-sm">
+      <div className="flex items-center gap-2">
+        <span className="font-medium">{domain.hostname}</span>
+        <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
+          {domain.status}
+        </span>
+        {domain.isPrimary ? <span className="text-xs text-brand">primary</span> : null}
+        {isCustom ? (
+          <>
+            {domain.status !== "active" ? (
+              <button
+                type="button"
+                onClick={() => void verify()}
+                disabled={busy !== null}
+                className="text-xs text-brand hover:underline"
+              >
+                {busy === "verify" ? "Verifying…" : "Verify"}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => void toggleSetup()}
+              disabled={busy !== null}
+              className="text-xs text-muted-foreground hover:underline"
+            >
+              {instructions ? "Hide DNS setup" : "DNS setup"}
+            </button>
+            <button
+              type="button"
+              onClick={onRemove}
+              className="text-xs text-red-600 hover:underline"
+            >
+              Remove
+            </button>
+          </>
+        ) : null}
+      </div>
+      {instructions ? (
+        <div className="ml-1 flex flex-col gap-1 rounded-md border border-border bg-muted/30 p-2 font-mono text-xs">
+          {instructions.map((record) => (
+            <div key={`${record.type}-${record.name}`} className="flex flex-wrap gap-x-2">
+              <span className="font-semibold">{record.type}</span>
+              <span className="text-muted-foreground">{record.name}</span>
+              <span>→</span>
+              <span>{record.value}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </li>
   )
 }
 

@@ -5,6 +5,32 @@ export {
   type ResolvedSite,
 } from "./tenant"
 export { encryptJson, decryptJson } from "./crypto"
+export {
+  type DomainState,
+  DOMAIN_STATES,
+  canTransition,
+  assertTransition,
+  DomainTransitionError,
+  isDomainState,
+  isServable,
+  isCertEligible,
+  afterVerification,
+} from "./domains/state-machine"
+export {
+  type DnsResolver,
+  type VerifyResult,
+  CHALLENGE_SUBDOMAIN,
+  verifyDomain,
+  dnsInstructions,
+} from "./domains/verify"
+export {
+  type DomainRecord,
+  type DomainRepository,
+  type DomainVerificationOutcome,
+  DomainNotFoundError,
+  runDomainVerification,
+} from "./domains/service"
+export { nodeDnsResolver } from "./domains/resolver"
 export { resolvePreview } from "./preview"
 export { resolvePublishedSite, type PublishedSiteResult } from "./published"
 export {
