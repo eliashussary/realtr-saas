@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm"
+import { and, eq, lt } from "drizzle-orm"
 import type { NodePgDatabase } from "drizzle-orm/node-postgres"
 import { billingEvent, subscription } from "./schema"
 import type * as schema from "./schema"
@@ -118,4 +118,42 @@ export async function writeSubscriptionMirror(
         updatedAt: new Date(),
       },
     })
+}
+
+// --- Grace→lapse sweep (M6-A4): the worker's repository over the @realtr/core lifecycle engine ---
+
+export interface GraceCandidateRow {
+  organizationId: string
+  status: string
+  graceEndsAt: Date | null
+}
+
+/**
+ * Repository for the grace sweep (structurally implements @realtr/core's GraceSweepRepository). The
+ * candidate query is a coarse prefilter on the `subscription_grace_idx`; the engine applies the tested
+ * `shouldLapse` predicate. `markLapsed` is guarded to `past_due` so a subscription that recovered to
+ * active between the query and the write is never clobbered.
+ */
+export function createGraceSweepRepository(database: BillingDatabase) {
+  return {
+    async listGraceCandidates(now: Date): Promise<GraceCandidateRow[]> {
+      return database
+        .select({
+          organizationId: subscription.organizationId,
+          status: subscription.status,
+          graceEndsAt: subscription.graceEndsAt,
+        })
+        .from(subscription)
+        .where(and(eq(subscription.status, "past_due"), lt(subscription.graceEndsAt, now)))
+    },
+
+    async markLapsed(organizationId: string): Promise<void> {
+      await database
+        .update(subscription)
+        .set({ status: "lapsed", updatedAt: new Date() })
+        .where(
+          and(eq(subscription.organizationId, organizationId), eq(subscription.status, "past_due")),
+        )
+    },
+  }
 }

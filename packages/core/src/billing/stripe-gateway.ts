@@ -81,6 +81,25 @@ export function createStripeGateway(config: StripeConfig): BillingGateway {
   }
 }
 
+// --- Customer Portal (M6-A4): hosted self-service for card updates, plan changes, cancellation ---
+
+/**
+ * Create a Stripe Customer Portal session and return its hosted URL. The Portal is where customers
+ * fix a failed payment (the way out of `past_due`/grace), change plan, or cancel — Realtr renders none
+ * of that. Standalone (not on BillingGateway) so it adds no surface to the checkout fakes.
+ */
+export async function createBillingPortalSession(
+  config: StripeConfig,
+  input: { customerId: string; returnUrl: string },
+): Promise<{ url: string }> {
+  const stripe = new Stripe(config.secretKey, { apiVersion: STRIPE_API_VERSION })
+  const session = await stripe.billingPortal.sessions.create({
+    customer: input.customerId,
+    return_url: input.returnUrl,
+  })
+  return { url: session.url }
+}
+
 // --- Webhook adapter (M6-A3): the Stripe side of the pure convergence in webhook.ts ---
 
 /** Pull a Stripe id off a field that Stripe returns as either the id string or the expanded object. */

@@ -34,7 +34,14 @@ export {
   graceDaysFromEnv,
   createStripeGateway,
   createStripeWebhookAdapter,
+  createBillingPortalSession,
 } from "./stripe-gateway"
+export {
+  type GraceCandidate,
+  type GraceSweepRepository,
+  shouldLapse,
+  runGraceSweep,
+} from "./lifecycle"
 export {
   type BillingWebhookEvent,
   type SubscriptionSnapshot,

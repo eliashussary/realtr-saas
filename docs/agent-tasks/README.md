@@ -95,11 +95,15 @@ re-verification worker, and the cert-issued→active transition (M5-A1..A5, ADR 
 tails are non-core: UI status polling and active-domain auto-demotion on later DNS breakage.
 
 M6 (billing) is in progress: M6-A1 (entitlement model + resolver), M6-A2 (Stripe Checkout behind a
-gateway port), and M6-A3 (signed re-fetch-and-converge webhook + mirror) have landed.
+gateway port), M6-A3 (signed re-fetch-and-converge webhook + mirror), and M6-A4 (Customer Portal link
++ grace→lapse worker sweep + dunning banner) have landed. Enforcement is still wired permissive by
+design.
 
-Suggested next packets: **M6-A4** (Customer Portal link + trial/grace/lapse worker sweep + dunning
-surfaces) is the natural next slice, then M6-A5 (enforcement flip + Team seat sync) and M6-A6 (support
-reconciliation console). Also open: production email transport (Resend, shared with M1 magic links).
+Suggested next packets: **M6-A5** (the enforcement flip — permissive→enforcing on publish / add-domain
+/ connect-integration / invite-member and site serving, plus Team seat-quantity sync and the
+invite-beyond-included confirm-charge flow) is the natural next slice and the one that makes the
+entitlement resolver actually gate access. Then M6-A6 (support reconciliation console). Also open:
+production email transport (Resend, shared with M1 magic links).
 
 ## Dispatch prompt
 

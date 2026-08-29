@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
 import {
+  createGraceSweepRepository,
   findOrgByStripeCustomerId,
   getSubscriptionByOrg,
   hasBillingEvent,
@@ -86,5 +87,37 @@ describe("billing webhook repository", () => {
 
     expect(await findOrgByStripeCustomerId(database.db, "cus_x")).toBe(organizationId)
     expect(await findOrgByStripeCustomerId(database.db, "cus_missing")).toBeNull()
+  })
+
+  it("grace sweep lists only expired past_due rows and lapses them (guarded to past_due)", async () => {
+    const [alpha, beta] = await createTwoTenantFixture(database)
+    const expiredOrg = alpha?.ids.organizationId ?? ""
+    const withinOrg = beta?.ids.organizationId ?? ""
+    const past = new Date("2026-08-28T00:00:00.000Z")
+    const future = new Date("2026-08-30T00:00:00.000Z")
+    const now = new Date("2026-08-29T00:00:00.000Z")
+
+    await writeSubscriptionMirror(
+      database.db,
+      mirror(expiredOrg, { status: "past_due", graceEndsAt: past }),
+    )
+    await writeSubscriptionMirror(
+      database.db,
+      mirror(withinOrg, { status: "past_due", graceEndsAt: future }),
+    )
+
+    const repo = createGraceSweepRepository(database.db)
+    const candidates = await repo.listGraceCandidates(now)
+    expect(candidates.map((c) => c.organizationId)).toEqual([expiredOrg])
+
+    await repo.markLapsed(expiredOrg)
+    expect((await getSubscriptionByOrg(database.db, expiredOrg))?.status).toBe("lapsed")
+    // The within-grace tenant is untouched.
+    expect((await getSubscriptionByOrg(database.db, withinOrg))?.status).toBe("past_due")
+
+    // markLapsed is guarded: an active subscription is never lapsed.
+    await writeSubscriptionMirror(database.db, mirror(withinOrg, { status: "active" }))
+    await repo.markLapsed(withinOrg)
+    expect((await getSubscriptionByOrg(database.db, withinOrg))?.status).toBe("active")
   })
 })

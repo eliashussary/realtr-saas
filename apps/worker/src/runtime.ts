@@ -5,12 +5,15 @@ import {
   loadListingSourceConfig,
   nodeDnsResolver,
   runDomainVerification,
+  runGraceSweep,
   runLeadDelivery,
 } from "@realtr/core"
 import { db } from "@realtr/db"
+import { createGraceSweepRepository } from "@realtr/db/billing"
 import { createDomainRepository, listDomainsAwaitingVerification } from "@realtr/db/domains"
 import { createListingRepository } from "@realtr/db/listings"
 import PgBoss from "pg-boss"
+import { BILLING_SWEEP_QUEUE, handleBillingSweep } from "./billing-sweep"
 import { DOMAINS_DISPATCH_QUEUE, handleDomainsDispatch } from "./domains-dispatch"
 import { DOMAINS_VERIFY_QUEUE, handleDomainsVerify } from "./domains-verify"
 import type { WorkerEnvironment } from "./env"
@@ -33,6 +36,9 @@ const LEAD_DELIVERY_CRON = "* * * * *"
 // Re-verify pending/error custom domains so DNS that propagates later flips them to verified.
 const DOMAINS_DISPATCH_CRON = "*/15 * * * *"
 const rendererBaseHost = process.env.RENDERER_BASE_HOST ?? "sites.realtr.app"
+
+// Lapse subscriptions whose payment-failure grace window has elapsed. Hourly is fine — grace is days.
+const BILLING_SWEEP_CRON = "20 * * * *"
 
 export interface WorkerRuntime {
   start(): Promise<void>
@@ -184,6 +190,19 @@ export function createWorkerRuntime(environment: WorkerEnvironment): WorkerRunti
         }
       })
       await boss.schedule(DOMAINS_DISPATCH_QUEUE, DOMAINS_DISPATCH_CRON, { version: 1 })
+
+      // Billing grace→lapse sweep: one idempotent pass per hour. singletonKey collapses overlap.
+      const graceSweepRepository = createGraceSweepRepository(db)
+      await boss.createQueue(BILLING_SWEEP_QUEUE, { name: BILLING_SWEEP_QUEUE })
+      await boss.work<unknown>(BILLING_SWEEP_QUEUE, async (jobs) => {
+        for (const job of jobs) {
+          await handleBillingSweep(job.data, {
+            sweep: () => runGraceSweep(graceSweepRepository),
+            log,
+          })
+        }
+      })
+      await boss.schedule(BILLING_SWEEP_QUEUE, BILLING_SWEEP_CRON, { version: 1 })
 
       await listen(healthServer, environment.healthPort)
       started = true

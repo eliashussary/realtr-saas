@@ -2,7 +2,7 @@ import { Button } from "@realtr/ui/components/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@realtr/ui/components/card"
 import { useCallback, useEffect, useState } from "react"
 import { toast } from "sonner"
-import { getBillingStatusFn, startCheckoutFn } from "../server/billing"
+import { getBillingStatusFn, openBillingPortalFn, startCheckoutFn } from "../server/billing"
 
 interface PlanView {
   id: "solo" | "team"
@@ -18,11 +18,43 @@ interface BillingView {
   status: string
   planId: string | null
   cancelAtPeriodEnd: boolean
+  graceEndsAt: string | null
   plans: PlanView[]
 }
 
 function dollars(cents: number): string {
   return `$${(cents / 100).toLocaleString("en-CA", { minimumFractionDigits: 0 })}`
+}
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-CA", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  })
+}
+
+/** Payment-failure / lapse messaging shown above the plans when a subscription needs attention. */
+function DunningBanner({ status, graceEndsAt }: { status: string; graceEndsAt: string | null }) {
+  if (status === "past_due" || status === "grace") {
+    return (
+      <p className="rounded-[var(--radius-base)] bg-warning/15 px-3 py-2 text-sm text-warning">
+        Your last payment failed.{" "}
+        {graceEndsAt
+          ? `Update your card by ${formatDate(graceEndsAt)} to keep your site online.`
+          : "Update your card to keep your site online."}
+      </p>
+    )
+  }
+  if (status === "lapsed") {
+    return (
+      <p className="rounded-[var(--radius-base)] bg-destructive/15 px-3 py-2 text-sm text-destructive">
+        Your subscription lapsed and your site is offline. Update your payment method to restore it
+        — your content is kept intact.
+      </p>
+    )
+  }
+  return null
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -65,6 +97,23 @@ export function BillingCard() {
     }
   }
 
+  const openPortal = async () => {
+    setBusy("portal")
+    const res = await openBillingPortalFn()
+    setBusy(null)
+    if (res.ok) {
+      window.location.href = res.url
+    } else if (res.code === "no_customer") {
+      toast.error("Subscribe first — there's no billing account to manage yet.")
+    } else if (res.code === "not_configured") {
+      toast.error("Billing is not configured yet.")
+    } else if (res.code === "forbidden") {
+      toast.error("Only owners and admins can manage billing.")
+    } else {
+      toast.error("Could not open the billing portal. Please try again.")
+    }
+  }
+
   if (!view) return null
 
   const subscribed = view.status !== "none"
@@ -76,12 +125,27 @@ export function BillingCard() {
         <StatusBadge status={view.status} />
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
+        <DunningBanner status={view.status} graceEndsAt={view.graceEndsAt} />
+
         {subscribed ? (
-          <p className="text-sm text-muted-foreground">
-            You're on the{" "}
-            <span className="font-medium capitalize text-foreground">{view.planId}</span> plan.
-            {view.cancelAtPeriodEnd ? " It will not renew at the end of the current period." : ""}
-          </p>
+          <div className="flex flex-col gap-3">
+            <p className="text-sm text-muted-foreground">
+              You're on the{" "}
+              <span className="font-medium capitalize text-foreground">{view.planId}</span> plan.
+              {view.cancelAtPeriodEnd ? " It will not renew at the end of the current period." : ""}
+            </p>
+            {view.configured ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="self-start"
+                disabled={!view.canManage || busy !== null}
+                onClick={openPortal}
+              >
+                {busy === "portal" ? "Opening…" : "Manage billing"}
+              </Button>
+            ) : null}
+          </div>
         ) : (
           <p className="text-sm text-muted-foreground">
             Choose a plan to start your 14-day trial. A card is required; you won't be charged until
