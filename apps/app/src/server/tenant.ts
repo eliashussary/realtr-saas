@@ -56,8 +56,8 @@ export const getDashboard = createServerFn({ method: "GET" }).handler(
       authorization.code === "forbidden" &&
       !session.session.activeOrganizationId
     ) {
-      const { provisionInitialWorkspace } = await import("./onboarding")
-      await provisionInitialWorkspace(db, { userId: session.user.id, email: session.user.email })
+      const { ensureWorkspace } = await import("./onboarding")
+      await ensureWorkspace(db, { userId: session.user.id, email: session.user.email })
       authorization = await resolveOrganizationAuthorization(session)
     }
 
@@ -192,8 +192,8 @@ export const getDashboardShell = createServerFn({ method: "GET" }).handler(
       authorization.code === "forbidden" &&
       !session.session.activeOrganizationId
     ) {
-      const { provisionInitialWorkspace } = await import("./onboarding")
-      await provisionInitialWorkspace(db, { userId: session.user.id, email: session.user.email })
+      const { ensureWorkspace } = await import("./onboarding")
+      await ensureWorkspace(db, { userId: session.user.id, email: session.user.email })
       authorization = await resolveOrganizationAuthorization(session)
     }
     if (!authorization.ok) return null

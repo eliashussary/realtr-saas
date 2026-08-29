@@ -1,5 +1,16 @@
 import { randomUUID } from "node:crypto"
-import { domain, agentProfile, member, organization, site, siteDocumentState } from "@realtr/db"
+import {
+  domain,
+  agentProfile,
+  and,
+  desc,
+  eq,
+  invitation,
+  member,
+  organization,
+  site,
+  siteDocumentState,
+} from "@realtr/db"
 import type { SiteDocumentDatabase } from "@realtr/db/site-documents"
 import { getTemplate } from "@realtr/site"
 import {
@@ -11,6 +22,61 @@ import { platformHostname } from "./platform"
 export interface ProvisionedWorkspace {
   organizationId: string
   siteId: string
+}
+
+/**
+ * Consume a pending invitation for this email, joining the inviting org. Returns true if a
+ * membership was created. Kept ahead of provisioning so an invited agent who simply signs in joins
+ * the org that invited them instead of getting a spurious personal tenant.
+ */
+async function acceptPendingInvitation(
+  database: SiteDocumentDatabase,
+  input: { userId: string; email: string },
+): Promise<boolean> {
+  const email = input.email.toLowerCase()
+  const [invite] = await database
+    .select()
+    .from(invitation)
+    .where(and(eq(invitation.email, email), eq(invitation.status, "pending")))
+    .orderBy(desc(invitation.expiresAt)) // freshest wins if invited to several orgs
+    .limit(1)
+  if (!invite || invite.expiresAt.getTime() < Date.now()) return false
+
+  await database.transaction(async (tx) => {
+    const already = await tx
+      .select({ id: member.id })
+      .from(member)
+      .where(and(eq(member.organizationId, invite.organizationId), eq(member.userId, input.userId)))
+      .limit(1)
+    if (!already[0]) {
+      await tx.insert(member).values({
+        id: randomUUID(),
+        organizationId: invite.organizationId,
+        userId: input.userId,
+        role: invite.role ?? "agent",
+      })
+    }
+    await tx.update(invitation).set({ status: "accepted" }).where(eq(invitation.id, invite.id))
+  })
+  return true
+}
+
+/**
+ * Give a membership-less user a workspace on first sign-in. Honors a pending invitation first (join
+ * the inviting org); otherwise provisions a personal org + starter site. This is the single choke
+ * point both dashboard loaders call, so invited agents never get a spurious tenant.
+ */
+export async function ensureWorkspace(
+  database: SiteDocumentDatabase,
+  input: { userId: string; email: string | null | undefined },
+): Promise<void> {
+  if (
+    input.email &&
+    (await acceptPendingInvitation(database, { userId: input.userId, email: input.email }))
+  ) {
+    return
+  }
+  await provisionInitialWorkspace(database, input)
 }
 
 /**
