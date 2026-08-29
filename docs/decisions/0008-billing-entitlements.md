@@ -34,8 +34,8 @@ client state.
 
 | Plan | Price (CAD/mo, provisional) | Entitlements |
 |---|---|---|
-| **Solo** | $99 | 1 site, 1 custom domain, DDF listing sync, leads + Follow Up Boss, 1 member, both templates |
-| **Team** | $250 base (5 seats) + $40/additional seat | Everything in Solo, plus 5 included members then per-seat, agent profile pages + Team block |
+| **Solo** | $129 | 1 site, 1 custom domain, DDF listing sync, leads + Follow Up Boss, 1 member, both templates |
+| **Team** | $299 base (5 seats) + $49/additional seat | Everything in Solo, plus 5 included members then per-seat, agent profile pages + Team block |
 
 Pricing is a **provisional stub** chosen to unblock build; it lives in a plan catalog module and is
 changed without code review of billing logic. Real pricing is a separate product/finance decision.
@@ -47,15 +47,15 @@ grace window below.)
 
 ### Per-seat billing (Team)
 
-Team is a **quantity-based (licensed) subscription**: a $250 base covering 5 seats plus an
-additional-seat price ($40/seat provisional). Modeled in Stripe as the Team subscription's licensed
+Team is a **quantity-based (licensed) subscription**: a $299 base covering 5 seats plus an
+additional-seat price ($49/seat provisional). Modeled in Stripe as the Team subscription's licensed
 price with `quantity = max(0, activeMembers − 5)`; Stripe bills base + extra seats and auto-prorates
 mid-cycle changes.
 
 - **Seat quantity is derived from membership, not stored separately.** When an owner/admin
   invites or removes a member, the mutation recomputes `quantity` and pushes it to the Stripe
   subscription item. The local mirror reflects it back via the resulting webhook (never optimistically).
-- **Inviting beyond the included 5 confirms the added charge first** ("this adds $40/mo"), then
+- **Inviting beyond the included 5 confirms the added charge first** ("this adds $49/mo"), then
   increments the quantity. Enforcement (M6-A5) gates the invite on *seats available OR owner
   confirmed the add* — Solo stays a hard cap of 1; Team has no hard cap, only a cost.
 
@@ -171,13 +171,17 @@ rework. Realtr calculates/collects via Stripe when enabled; it does not file or 
 
 ## Owner decisions (resolved 2026-08-29)
 
-- Pricing: **Solo $99/mo**, **Team $250/mo** (5 included seats) **+ $40/additional seat** — all CAD,
-  provisional stub, editable as catalog config.
+- Pricing (Option B): **Solo $129/mo**, **Team $299/mo** (5 included seats) **+ $49/additional seat**
+  — all CAD, provisional stub, editable as catalog config. Positions Realtr at the premium of the
+  mid-market site+IDX band while staying a clear bargain against $300 all-in-ones.
 - Grace window: **N = 7 days**. Leads-off point defaults to `past_due` (config knob to soften to
   `grace_end` after pilot).
 - Team seating: **5 included, then per-seat** (no hard cap; Solo hard-capped at 1).
 
 Still open (non-blocking for M6-A1):
 
-- Confirm the $40 additional-seat price before launch.
+- Confirm the $49 additional-seat price before launch.
+- **Annual billing** (~2 months free) — recommended, adds a second price per plan; not yet decided.
+- **Founder/pilot discount** — recommended (e.g. 30% off for 12 months, a Stripe coupon, no catalog
+  change); not yet decided.
 - Whether custom domains beyond 1 are ever in scope for MVP (assumed no).

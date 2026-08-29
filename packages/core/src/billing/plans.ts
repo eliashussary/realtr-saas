@@ -24,7 +24,7 @@ export const PLANS: Record<PlanId, Plan> = {
   solo: {
     id: "solo",
     name: "Solo",
-    basePriceCents: 9900,
+    basePriceCents: 12900,
     includedMembers: 1,
     additionalSeatPriceCents: 0,
     memberCap: 1,
@@ -34,9 +34,9 @@ export const PLANS: Record<PlanId, Plan> = {
   team: {
     id: "team",
     name: "Team",
-    basePriceCents: 25000,
+    basePriceCents: 29900,
     includedMembers: 5,
-    additionalSeatPriceCents: 4000,
+    additionalSeatPriceCents: 4900,
     memberCap: null,
     customDomains: 1,
     integrations: true,
