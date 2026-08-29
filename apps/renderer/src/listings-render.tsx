@@ -138,8 +138,75 @@ export function ListingDetail({ item }: { item: ListingItem }) {
           ))}
         </div>
       ) : null}
+      <InquiryForm sourceListingId={item.sourceListingId} address={view.addressLine} />
       {/* Attribution only for DDF listings; exclusive listings are the realtor's own inventory. */}
       {item.source === "ddf" ? <ListingAttribution brokerageName={view.brokerageName} /> : null}
     </article>
+  )
+}
+
+const INPUT =
+  "w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted"
+
+// Same no-JS pattern as the Contact block: native POST → store → redirect back with ?contacted; the
+// script only reveals the banner. Source is listing_inquiry and the listing ref auto-links + routes.
+const INQUIRY_SCRIPT = `(function(){try{var p=new URLSearchParams(location.search).get('contacted');if(!p)return;var ok=document.getElementById('inq-ok');var err=document.getElementById('inq-err');var f=document.getElementById('inq-form');if(p==='1'){if(ok)ok.hidden=false;if(f)f.hidden=true;}else if(p==='invalid'||p==='error'){if(err){err.hidden=false;err.textContent=p==='invalid'?'Please enter a valid email or phone number.':'Something went wrong. Please try again.';}}}catch(e){}})();`
+
+function InquiryForm({
+  sourceListingId,
+  address,
+}: { sourceListingId: string; address: string | null }) {
+  return (
+    <section className="mt-10 rounded-lg border border-border bg-muted/5 p-6">
+      <h2 className="font-heading text-xl font-semibold">Request information</h2>
+      <p className="mt-1 text-sm text-muted">Ask about this property and we'll be in touch.</p>
+      <p id="inq-ok" hidden className="mt-4 rounded-md bg-brand/10 px-4 py-3 text-sm">
+        Thanks — your inquiry is on its way. We'll be in touch shortly.
+      </p>
+      <p
+        id="inq-err"
+        hidden
+        className="mt-4 rounded-md bg-red-500/10 px-4 py-3 text-sm text-red-600"
+      />
+      <form id="inq-form" method="POST" action="/api/lead" className="mt-4 flex flex-col gap-3">
+        <input type="hidden" name="source" value="listing_inquiry" />
+        <input type="hidden" name="listingRef" value={sourceListingId} />
+        <input
+          type="text"
+          name="company"
+          tabIndex={-1}
+          autoComplete="off"
+          aria-hidden="true"
+          className="hidden"
+        />
+        <input name="name" placeholder="Your name" autoComplete="name" className={INPUT} />
+        <input
+          name="email"
+          type="email"
+          placeholder="Email"
+          autoComplete="email"
+          className={INPUT}
+        />
+        <input name="phone" type="tel" placeholder="Phone" autoComplete="tel" className={INPUT} />
+        <textarea
+          name="message"
+          rows={3}
+          defaultValue={address ? `I'm interested in ${address}.` : ""}
+          className={INPUT}
+        />
+        <label className="flex items-start gap-2 text-xs text-muted">
+          <input type="checkbox" name="consent" value="on" className="mt-0.5" />
+          <span>I agree to be contacted about this inquiry.</span>
+        </label>
+        <button
+          type="submit"
+          className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-white"
+        >
+          Send inquiry
+        </button>
+      </form>
+      {/* biome-ignore lint/security/noDangerouslySetInnerHtml: static, no interpolation */}
+      <script dangerouslySetInnerHTML={{ __html: INQUIRY_SCRIPT }} />
+    </section>
   )
 }

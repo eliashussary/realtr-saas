@@ -71,3 +71,27 @@ export async function assignLead(
     .where(and(eq(lead.organizationId, organizationId), eq(lead.id, id)))
   return result.rowCount ?? 0
 }
+
+// new -> working -> outcome. Kept as a constant so the UI and repo agree on the vocabulary.
+export const LEAD_STATUSES = ["new", "contacted", "qualified", "won", "lost"] as const
+export type LeadStatus = (typeof LEAD_STATUSES)[number]
+
+/**
+ * Move a lead through its pipeline. `restrictToMemberId` scopes the write to a single owning agent
+ * (rowCount 0 if the lead isn't theirs) so agent-role callers can only touch their own leads.
+ */
+export async function updateLeadStatus(
+  database: LeadDatabase,
+  organizationId: string,
+  id: string,
+  status: LeadStatus,
+  restrictToMemberId: string | null = null,
+): Promise<number> {
+  const conditions = [eq(lead.organizationId, organizationId), eq(lead.id, id)]
+  if (restrictToMemberId) conditions.push(eq(lead.assignedMemberId, restrictToMemberId))
+  const result = await database
+    .update(lead)
+    .set({ status, updatedAt: new Date() })
+    .where(and(...conditions))
+  return result.rowCount ?? 0
+}

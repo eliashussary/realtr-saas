@@ -79,11 +79,15 @@ for the authoritative summary):
 - **Teams & users** — RBAC (owner/admin/agent via better-auth access-control in
   `apps/app/src/lib/permissions.ts`), agent invitations + `/accept-invite`, agent profiles, a Team
   block, and `/agents/$slug` pages. Role and "showcased on the site" are independent.
-- **Lead seam (M4 foundation only)** — `lead` table + `@realtr/db/leads` repo (migration 0012); no
-  capture UI, inbox, distribution, or CRM delivery yet.
+- **Leads (M4 — capture + inbox + distribution)** — public contact + listing-inquiry forms posting to
+  a store-before-deliver `/api/lead` endpoint (`captureLead` in `@realtr/core`, pure screening in
+  `leads-screen.ts`); a role-scoped `/leads` inbox with status pipeline; auto-routing of listing
+  inquiries to the listing's agent plus owner/admin manual reassignment. Repo gained
+  `updateLeadStatus`; listings repo gained `resolveListingRef`. CRM delivery + notification email are
+  the remaining M4 pieces.
 
-Suggested next packets: M4 lead capture/inbox/distribution + Follow Up Boss; M5 domain
-verification/status automation; M6 billing; ADR 0007 (asset storage) and an RBAC ADR.
+Suggested next packets: M4 Follow Up Boss delivery (retain-on-failure) + new-lead notification email;
+M5 domain verification/status automation; M6 billing; ADR 0007 (asset storage) and an RBAC ADR.
 
 ## Dispatch prompt
 

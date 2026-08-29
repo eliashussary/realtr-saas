@@ -59,3 +59,4 @@ export {
   loadListingSourceConfig,
   listConnectedListingSources,
 } from "./integrations/config"
+export { captureLead, type CaptureLeadInput, type CaptureLeadResult } from "./leads"

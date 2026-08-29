@@ -85,7 +85,7 @@ product capabilities it gates.
 | M2 Site builder + publishing | done | pages/nav/SEO, draft/publish + rollback, Puck editor, theme/settings editor, 2 templates, sitemap/robots/JSON-LD |
 | M3 Listings + DDF | done | client, sync engine, persistence, scheduling, connect UI, public rendering, ops console. Post-MVP **M3-B Technology-Provider** track (deduped feed, per-`DestinationId` entitlement) still open (ADR 0006) |
 | M3.5 Listings mgmt + teams (this session) | done | sidebar dashboard, dark mode, featured listings, exclusive listings + S3 asset upload, RBAC/invitations/agent profiles + Team block |
-| M4 Leads + CRM | seam only | `lead` table + repo shipped (assignedMemberId/listingId). Capture forms, inbox, distribution, deal-flow pipeline, and Follow Up Boss implementation are unbuilt |
+| M4 Leads + CRM | in progress | **Capture** (contact + listing-inquiry forms, store-before-deliver, honeypot/rate-limit/consent), **inbox** (role-scoped list + status pipeline), and **distribution** (auto-route listing inquiries to the listing's agent; owner/admin manual reassign) shipped and verified. Remaining: Follow Up Boss delivery + retain-on-failure, and new-lead notification email |
 | M5 Domains | partial | resolution, on-demand TLS, platform subdomains, secured add/remove. Verification/status automation + production host strategy remain |
 | M6 Billing + entitlements | not started | |
 | M7 Operations + launch | partial | super-admin sync console exists; broader reliability/launch hardening remains |
@@ -215,21 +215,28 @@ Acceptance criteria:
 
 Goal: every legitimate inquiry is retained and, when configured, delivered to the realtor's CRM.
 
-Status (2026-08-28): the **seam is in place** — a tenant-scoped `lead` table (migration 0012) with
-`assignedMemberId`, `listingId`, `siteId`, status, and consent, plus a `@realtr/db/leads` repository
-(`createLead` / `listLeadsForOrg` / `assignLead`). The teams/RBAC + agent-profile model (needed for
-assignment and per-agent inboxes) is done. The work packages below are all still to build; they are
-now purely additive on top of the seam.
+Status (2026-08-28): **capture, inbox, and distribution are built and verified**; CRM delivery and
+notification email remain. Shipped:
 
-Work packages:
+- **Capture** — the Contact block is a real form and listing detail pages carry an inquiry form; both
+  native-POST to a renderer `/api/lead` endpoint. `captureLead` (`@realtr/core`) resolves host→tenant,
+  screens (honeypot, field cleaning, contact-required, email syntax), rate-limits per org+IP, and
+  **stores before any delivery**. Pure screening is DB-free in `leads-screen.ts` (unit-tested).
+- **Distribution** — a listing inquiry resolves its `sourceListingId` to the canonical listing
+  (`resolveListingRef`), links `listingId`, and auto-routes to the listing's agent; a stale ref still
+  stores the inquiry, unlinked. Owner/admin reassign in the inbox (`assignLeadFn`, org-membership
+  guard on the target); agents cannot assign.
+- **Inbox** — `/leads` dashboard page: role-scoped list (admins all, agents own), status pipeline
+  (`new→contacted→qualified→won→lost`) via `updateLeadStatusFn`, filter, empty states. Repo gained
+  `updateLeadStatus` (optional agent-scoped write).
 
-- tenant-scoped lead model with consent/source/page/listing context, retention rules, and audit trail
-- contact and listing-inquiry forms with accessible validation, spam controls, rate limiting, and
-  notification email
-- lead inbox and status management in the control centre
+Remaining work packages:
+
 - Follow Up Boss provider implementation with connection test, idempotency, retries, and delivery
-  status; retain the lead locally when CRM delivery fails
-- privacy/consent surfaces suitable for Canadian customers, informed by legal review
+  status; retain the lead locally when CRM delivery fails (the `CrmProvider` seam + `fub` stub exist)
+- new-lead notification email (needs the same production email transport as M1 magic links)
+- privacy/consent surfaces suitable for Canadian customers, informed by legal review (a consent
+  checkbox is captured today; retention rules and a policy surface are not)
 
 Acceptance criteria:
 

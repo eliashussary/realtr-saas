@@ -1,5 +1,5 @@
 import { Link, useRouter } from "@tanstack/react-router"
-import { Building2, LayoutDashboard, LogOut, Plug, Shield, Users } from "lucide-react"
+import { Building2, Inbox, LayoutDashboard, LogOut, Plug, Shield, Users } from "lucide-react"
 import type { ComponentType } from "react"
 import { authClient } from "../lib/auth-client"
 import { ThemeToggle } from "./theme-toggle"
@@ -13,6 +13,7 @@ interface NavItem {
 const NAV: NavItem[] = [
   { to: "/", label: "Overview", icon: LayoutDashboard },
   { to: "/listings", label: "Listings", icon: Building2 },
+  { to: "/leads", label: "Leads", icon: Inbox },
   { to: "/team", label: "Team", icon: Users },
   { to: "/integrations", label: "Integrations", icon: Plug },
 ]

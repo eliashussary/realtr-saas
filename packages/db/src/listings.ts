@@ -388,6 +388,25 @@ export async function getListingById(
   return row ?? null
 }
 
+/**
+ * Resolve a public `sourceListingId` to its canonical row id and owning agent, tenant-scoped. Used
+ * by lead capture to link a listing inquiry to the listing and auto-route it to the listing's agent.
+ */
+export async function resolveListingRef(
+  database: ListingDatabase,
+  organizationId: string,
+  sourceListingId: string,
+): Promise<{ id: string; memberId: string | null } | null> {
+  const [row] = await database
+    .select({ id: listing.id, memberId: listing.memberId })
+    .from(listing)
+    .where(
+      and(eq(listing.organizationId, organizationId), eq(listing.sourceListingId, sourceListingId)),
+    )
+    .limit(1)
+  return row ?? null
+}
+
 /** Read one currently-active listing by its tenant-local id, or null. */
 export async function getActiveListing(
   database: ListingDatabase,
