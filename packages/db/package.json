@@ -17,6 +17,7 @@
     "./data-export": "./src/data-export.ts",
     "./posts": "./src/posts.ts",
     "./areas": "./src/areas.ts",
+    "./collections": "./src/collections.ts",
     "./errors": "./src/errors.ts"
   },
   "scripts": {

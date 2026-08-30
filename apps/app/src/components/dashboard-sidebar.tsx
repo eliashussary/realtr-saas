@@ -11,6 +11,7 @@ import {
   CreditCard,
   Inbox,
   LayoutDashboard,
+  LayoutGrid,
   LogOut,
   Newspaper,
   Plug,
@@ -32,6 +33,7 @@ interface NavItem {
 const NAV: NavItem[] = [
   { to: "/", label: "Overview", icon: LayoutDashboard },
   { to: "/listings", label: "Listings", icon: Building2 },
+  { to: "/collections", label: "Collections", icon: LayoutGrid },
   { to: "/leads", label: "Leads", icon: Inbox },
   { to: "/blog", label: "Blog", icon: Newspaper },
   { to: "/team", label: "Team", icon: Users },

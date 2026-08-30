@@ -25,6 +25,8 @@ export const statement = {
   billing: ["manage", "view"],
   // Blog posts: owner/admin only (a brokerage-level channel). manage covers create/edit/delete/publish.
   post: ["manage"],
+  // Property collections (saved searches): owner/admin only. manage covers create/edit/delete/publish.
+  collection: ["manage"],
 } as const
 
 export const ac = createAccessControl(statement)
@@ -37,6 +39,7 @@ const REALTR_ALL = {
   lead: ["viewAll", "viewOwn", "assign", "update"],
   billing: ["manage", "view"],
   post: ["manage"],
+  collection: ["manage"],
 } as const
 
 export const roles = {

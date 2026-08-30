@@ -134,6 +134,13 @@
       "when": 1788117688365,
       "tag": "0018_furry_moira_mactaggert",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1788118592707,
+      "tag": "0019_lovely_lifeguard",
+      "breakpoints": true
     }
   ]
 }
