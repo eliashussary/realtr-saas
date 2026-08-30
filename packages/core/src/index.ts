@@ -95,6 +95,11 @@ export {
   loadConnectedCrm,
 } from "./integrations/config"
 export { captureLead, type CaptureLeadInput, type CaptureLeadResult } from "./leads"
+export {
+  type PostRow,
+  listPublishedBlogPosts,
+  getPublishedBlogPost,
+} from "./blog"
 export { runLeadDelivery } from "./leads-delivery"
 export {
   type PlanId,

@@ -14,7 +14,8 @@
     "./billing": "./src/billing.ts",
     "./domains": "./src/domains.ts",
     "./admin": "./src/admin.ts",
-    "./data-export": "./src/data-export.ts"
+    "./data-export": "./src/data-export.ts",
+    "./posts": "./src/posts.ts"
   },
   "scripts": {
     "db:generate": "drizzle-kit generate",

@@ -7,7 +7,7 @@ export const Route = createFileRoute("/sitemap.xml")({
   server: {
     handlers: {
       GET: async ({ request }) => {
-        const { resolvePublishedSite } = await import("@realtr/core")
+        const { resolvePublishedSite, listPublishedBlogPosts } = await import("@realtr/core")
         const host = request.headers.get("host") ?? new URL(request.url).host
         const result = await resolvePublishedSite(host)
         if (result.status !== "ok") {
@@ -17,7 +17,13 @@ export const Route = createFileRoute("/sitemap.xml")({
           })
         }
         const origin = resolveOrigin(host, request.headers.get("x-forwarded-proto"))
-        const xml = sitemapXml(result.document as unknown as SiteDocumentV1, origin)
+        // Include the blog index + each published, indexable post.
+        const posts = await listPublishedBlogPosts(result.organizationId)
+        const blogPaths = [
+          "/blog",
+          ...posts.filter((p) => !p.noIndex).map((p) => `/blog/${p.slug}`),
+        ]
+        const xml = sitemapXml(result.document as unknown as SiteDocumentV1, origin, blogPaths)
         return new Response(xml, {
           status: 200,
           headers: {

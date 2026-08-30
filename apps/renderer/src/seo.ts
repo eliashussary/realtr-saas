@@ -101,10 +101,17 @@ function escapeXml(value: string): string {
 }
 
 /** Build a sitemap for the site's publicly indexable pages (active and not noindex). */
-export function sitemapXml(document: SiteDocumentV1, origin: string): string {
-  const urls = document.pages
+export function sitemapXml(
+  document: SiteDocumentV1,
+  origin: string,
+  extraPaths: string[] = [],
+): string {
+  const pageUrls = document.pages
     .filter((page) => page.status === "active" && page.seo.noIndex !== true)
-    .map((page) => `  <url><loc>${escapeXml(pageUrl(origin, page.slug))}</loc></url>`)
+    .map((page) => pageUrl(origin, page.slug))
+  const extraUrls = extraPaths.map((path) => `${origin}${path.startsWith("/") ? "" : "/"}${path}`)
+  const urls = [...pageUrls, ...extraUrls]
+    .map((loc) => `  <url><loc>${escapeXml(loc)}</loc></url>`)
     .join("\n")
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`
 }

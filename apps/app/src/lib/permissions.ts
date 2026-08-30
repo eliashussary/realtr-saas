@@ -23,6 +23,8 @@ export const statement = {
   lead: ["viewAll", "viewOwn", "assign", "update"],
   // Subscription management (M6): manage = checkout/portal/plan changes; view = see billing status.
   billing: ["manage", "view"],
+  // Blog posts: owner/admin only (a brokerage-level channel). manage covers create/edit/delete/publish.
+  post: ["manage"],
 } as const
 
 export const ac = createAccessControl(statement)
@@ -34,6 +36,7 @@ const REALTR_ALL = {
   agentProfile: ["editAny", "editOwn"],
   lead: ["viewAll", "viewOwn", "assign", "update"],
   billing: ["manage", "view"],
+  post: ["manage"],
 } as const
 
 export const roles = {

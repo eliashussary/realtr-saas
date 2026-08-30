@@ -34,6 +34,7 @@ Delivered and verified in-app:
 - public listing grid/detail with REALTOR.ca attribution (source-aware) and preserved watermarks
 - listings management: featured curation (survives re-sync), exclusive/manual listings with full CRUD
 - agent profiles showcased via a Team block + `/agents/$slug` pages
+- blog: Markdown posts with an in-dashboard editor (owner/admin) + public /blog index & post pages, themed + SEO
 - S3-compatible asset storage (`@aws-sdk/client-s3`; SeaweedFS in dev, any endpoint in prod)
 - host→domain→site resolution, Caddy on-demand TLS check, platform subdomains
 - Docker development (Postgres + SeaweedFS) and single-host production topology
