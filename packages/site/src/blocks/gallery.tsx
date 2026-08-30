@@ -1,4 +1,5 @@
 import type { ComponentConfig } from "@measured/puck"
+import { imageField } from "./image-field"
 
 export interface GalleryImage {
   url: string
@@ -15,9 +16,10 @@ export const gallery: ComponentConfig<GalleryProps> = {
     images: {
       type: "array",
       arrayFields: {
-        url: { type: "text" },
+        url: imageField("Image"),
         alt: { type: "text" },
       },
+      getItemSummary: (item, index) => item.alt || `Image ${(index ?? 0) + 1}`,
     },
   },
   defaultProps: {

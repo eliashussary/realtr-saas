@@ -3,6 +3,7 @@ import { about } from "./about"
 import { contact } from "./contact"
 import { gallery } from "./gallery"
 import { hero } from "./hero"
+import { image } from "./image"
 import { listingGrid } from "./listing-grid"
 import { richText } from "./rich-text"
 import { team } from "./team"
@@ -20,6 +21,7 @@ export const coreBlocks = {
   Contact: contact,
   RichText: richText,
   Gallery: gallery,
+  Image: image,
 } satisfies Record<string, AnyComponentConfig>
 
 export type CoreBlockName = keyof typeof coreBlocks
@@ -44,6 +46,7 @@ export function composeConfig(opts: ComposeOptions = {}): Config {
   return { components, root: opts.root, categories: opts.categories }
 }
 
-export { hero, listingGrid, about, team, contact, richText, gallery }
+export { hero, listingGrid, about, team, contact, richText, gallery, image }
+export { imageField } from "./image-field"
 export type { FeaturedListing, ListingGridProps } from "./listing-grid"
 export type { TeamAgent, TeamProps } from "./team"
