@@ -92,6 +92,9 @@ importers:
       lucide-react:
         specifier: ^1.34.0
         version: 1.34.0(react@19.2.7)
+      maplibre-gl:
+        specifier: ^4.7.1
+        version: 4.7.1
       next-themes:
         specifier: ^0.4.6
         version: 0.4.6(react-dom@19.2.7(react@19.2.7))(react@19.2.7)

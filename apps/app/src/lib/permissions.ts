@@ -27,6 +27,8 @@ export const statement = {
   post: ["manage"],
   // Property collections (saved searches): owner/admin only. manage covers create/edit/delete/publish.
   collection: ["manage"],
+  // Serviced market (bounding box): owner/admin only. Bounds the feed pull + public site.
+  serviceArea: ["manage"],
 } as const
 
 export const ac = createAccessControl(statement)
@@ -40,6 +42,7 @@ const REALTR_ALL = {
   billing: ["manage", "view"],
   post: ["manage"],
   collection: ["manage"],
+  serviceArea: ["manage"],
 } as const
 
 export const roles = {
