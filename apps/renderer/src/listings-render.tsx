@@ -1,3 +1,4 @@
+import { type ListingFacets, type ListingFilter, listingFilterToSearchParams } from "@realtr/core"
 import { type ListingView, toListingView } from "./listing-view"
 
 export interface ListingItem {
@@ -83,13 +84,219 @@ function ListingCard({ item }: { item: ListingItem }) {
   )
 }
 
-export function ListingsGrid({ items }: { items: ListingItem[] }) {
+// Build a /listings href for a given filter + offset — used for pagination and "clear". Keeps the URL
+// the single source of truth so links, the FilterBar, and deep links all round-trip identically.
+function listingsHref(filter: ListingFilter, offset: number): string {
+  const params = listingFilterToSearchParams(filter)
+  if (offset > 0) params.set("offset", String(offset))
+  const qs = params.toString()
+  return qs ? `/listings?${qs}` : "/listings"
+}
+
+const CONTROL = "rounded-md border border-border bg-background px-2 py-1.5 text-sm text-foreground"
+
+// A native GET form: submitting sets the querystring the loader parses. Works with no JS (the Apply
+// button); when hydrated, each control auto-submits on change for an instant-filter feel. Beds/baths
+// are "at least"; property type + city are drawn from the tenant's actual inventory (facets).
+function FilterBar({ filter, facets }: { filter: ListingFilter; facets: ListingFacets }) {
+  const submitOnChange = (event: { currentTarget: { form: HTMLFormElement | null } }) =>
+    event.currentTarget.form?.requestSubmit()
+  const minMax = [1, 2, 3, 4, 5]
+  return (
+    <form method="GET" action="/listings" className="flex flex-wrap items-end gap-2">
+      <label className="flex flex-col gap-1 text-xs text-muted">
+        Min price
+        <input
+          type="number"
+          name="minPrice"
+          min={0}
+          step={25000}
+          defaultValue={filter.minPrice ?? ""}
+          placeholder="$ Min"
+          onChange={submitOnChange}
+          className={`${CONTROL} w-28`}
+        />
+      </label>
+      <label className="flex flex-col gap-1 text-xs text-muted">
+        Max price
+        <input
+          type="number"
+          name="maxPrice"
+          min={0}
+          step={25000}
+          defaultValue={filter.maxPrice ?? ""}
+          placeholder="$ Max"
+          onChange={submitOnChange}
+          className={`${CONTROL} w-28`}
+        />
+      </label>
+      <label className="flex flex-col gap-1 text-xs text-muted">
+        Beds
+        <select
+          name="minBeds"
+          defaultValue={filter.minBeds ?? ""}
+          onChange={submitOnChange}
+          className={CONTROL}
+        >
+          <option value="">Any</option>
+          {minMax.map((n) => (
+            <option key={n} value={n}>
+              {n}+
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="flex flex-col gap-1 text-xs text-muted">
+        Baths
+        <select
+          name="minBaths"
+          defaultValue={filter.minBaths ?? ""}
+          onChange={submitOnChange}
+          className={CONTROL}
+        >
+          <option value="">Any</option>
+          {minMax.map((n) => (
+            <option key={n} value={n}>
+              {n}+
+            </option>
+          ))}
+        </select>
+      </label>
+      {facets.propertyTypes.length > 0 ? (
+        <label className="flex flex-col gap-1 text-xs text-muted">
+          Type
+          <select
+            name="propertyType"
+            defaultValue={filter.propertyType?.[0] ?? ""}
+            onChange={submitOnChange}
+            className={CONTROL}
+          >
+            <option value="">Any type</option>
+            {facets.propertyTypes.map((f) => (
+              <option key={f.value} value={f.value}>
+                {f.value} ({f.count})
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
+      {facets.cities.length > 0 ? (
+        <label className="flex flex-col gap-1 text-xs text-muted">
+          City
+          <select
+            name="city"
+            defaultValue={filter.city?.[0] ?? ""}
+            onChange={submitOnChange}
+            className={CONTROL}
+          >
+            <option value="">Any city</option>
+            {facets.cities.map((f) => (
+              <option key={f.value} value={f.value}>
+                {f.value} ({f.count})
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
+      <label className="flex flex-col gap-1 text-xs text-muted">
+        Sort
+        <select
+          name="sort"
+          defaultValue={filter.sort ?? "newest"}
+          onChange={submitOnChange}
+          className={CONTROL}
+        >
+          <option value="newest">Newest</option>
+          <option value="price_asc">Price ↑</option>
+          <option value="price_desc">Price ↓</option>
+        </select>
+      </label>
+      <button
+        type="submit"
+        className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-white"
+      >
+        Apply
+      </button>
+      <a href="/listings" className="px-2 py-2 text-sm text-muted hover:text-foreground">
+        Clear
+      </a>
+    </form>
+  )
+}
+
+function Pagination({
+  filter,
+  offset,
+  pageSize,
+  total,
+}: { filter: ListingFilter; offset: number; pageSize: number; total: number }) {
+  const from = total === 0 ? 0 : offset + 1
+  const to = Math.min(offset + pageSize, total)
+  const hasPrev = offset > 0
+  const hasNext = offset + pageSize < total
+  if (!hasPrev && !hasNext) return null
+  return (
+    <nav className="mt-8 flex items-center justify-between text-sm">
+      {hasPrev ? (
+        <a
+          href={listingsHref(filter, Math.max(0, offset - pageSize))}
+          className="rounded-md border border-border px-3 py-1.5 hover:bg-muted/10"
+        >
+          ← Previous
+        </a>
+      ) : (
+        <span />
+      )}
+      <span className="text-muted">
+        {from}–{to} of {total}
+      </span>
+      {hasNext ? (
+        <a
+          href={listingsHref(filter, offset + pageSize)}
+          className="rounded-md border border-border px-3 py-1.5 hover:bg-muted/10"
+        >
+          Next →
+        </a>
+      ) : (
+        <span />
+      )}
+    </nav>
+  )
+}
+
+export interface ListingsSearchProps {
+  items: ListingItem[]
+  filter: ListingFilter
+  facets: ListingFacets
+  total: number
+  offset: number
+  pageSize: number
+}
+
+/** The public faceted listings page: FilterBar + result count + grid + pagination. */
+export function ListingsSearch({
+  items,
+  filter,
+  facets,
+  total,
+  offset,
+  pageSize,
+}: ListingsSearchProps) {
   return (
     <section className="px-6 py-8">
-      <h1 className="font-heading text-2xl font-bold">Listings</h1>
+      <div className="flex flex-col gap-4">
+        <h1 className="font-heading text-2xl font-bold">
+          {total} {total === 1 ? "listing" : "listings"}
+        </h1>
+        <FilterBar filter={filter} facets={facets} />
+      </div>
       {items.length === 0 ? (
-        <p className="mt-4 text-muted">
-          No listings are available right now. Please check back soon.
+        <p className="mt-8 text-muted">
+          No listings match your filters. Try widening your search or{" "}
+          <a href="/listings" className="text-brand hover:underline">
+            clearing them
+          </a>
+          .
         </p>
       ) : (
         <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -98,7 +305,7 @@ export function ListingsGrid({ items }: { items: ListingItem[] }) {
           ))}
         </div>
       )}
-      {/* REALTOR.ca attribution only when DDF listings are present — never on an exclusive-only page. */}
+      <Pagination filter={filter} offset={offset} pageSize={pageSize} total={total} />
       {items.some((item) => item.source === "ddf") ? <ListingAttribution /> : null}
     </section>
   )

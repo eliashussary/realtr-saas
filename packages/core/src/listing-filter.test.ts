@@ -30,6 +30,11 @@ describe("parseListingFilter", () => {
     expect(parseListingFilter(params)).toEqual<ListingFilter>({ city: ["Ottawa"] })
   })
 
+  it("treats empty number inputs (GET form) as absent, not zero", () => {
+    const params = new URLSearchParams("minPrice=&maxPrice=&minBeds=&propertyType=House")
+    expect(parseListingFilter(params)).toEqual<ListingFilter>({ propertyType: ["House"] })
+  })
+
   it("returns an empty filter for empty params", () => {
     const filter = parseListingFilter(new URLSearchParams())
     expect(filter).toEqual({})

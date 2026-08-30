@@ -1,8 +1,20 @@
-import { getPublishedListing, listPublishedListings, resolvePublishedSite } from "@realtr/core"
+import {
+  type ListingFacets,
+  type ListingFilter,
+  countPublishedListings,
+  getPublishedListing,
+  parseListingFilter,
+  publishedListingFacets,
+  resolvePublishedSite,
+  searchPublishedListings,
+} from "@realtr/core"
 import type { SiteDocumentV1 } from "@realtr/site/document"
 import { createServerFn } from "@tanstack/react-start"
 import { toListingView } from "./listing-view"
-import { ListingDetail, type ListingItem, ListingsGrid } from "./listings-render"
+import { ListingDetail, type ListingItem, ListingsSearch } from "./listings-render"
+
+// Public search page size. A filtered page returns this many, with prev/next paging by offset.
+const PAGE_SIZE = 24
 import { resolveOrigin, serializeJsonLd } from "./seo"
 import { SiteShell } from "./site-shell"
 
@@ -25,7 +37,17 @@ function toItem(listing: SerializedListing): ListingItem {
 }
 
 export type ListingsGridData =
-  | { status: "ok"; document: Json; items: SerializedListing[]; origin: string }
+  | {
+      status: "ok"
+      document: Json
+      items: SerializedListing[]
+      origin: string
+      filter: ListingFilter
+      facets: ListingFacets
+      total: number
+      offset: number
+      pageSize: number
+    }
   | { status: "not_found" }
   | { status: "error" }
 
@@ -35,16 +57,28 @@ export type ListingDetailData =
   | { status: "error" }
 
 async function resolveHost() {
-  const { getRequestHeader, setResponseStatus } = await import("@tanstack/react-start/server")
+  const { getRequest, getRequestHeader, setResponseStatus } = await import(
+    "@tanstack/react-start/server"
+  )
   const host = getRequestHeader("host") ?? ""
   const origin = resolveOrigin(host, getRequestHeader("x-forwarded-proto"))
   const site = await resolvePublishedSite(host)
-  return { site, origin, setResponseStatus: setResponseStatus as (status: number) => void }
+  return {
+    site,
+    origin,
+    url: new URL(getRequest().url),
+    setResponseStatus: setResponseStatus as (status: number) => void,
+  }
+}
+
+function readOffset(params: URLSearchParams): number {
+  const n = Number(params.get("offset"))
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0
 }
 
 const loadListingsGrid = createServerFn({ method: "GET" }).handler(
   async (): Promise<ListingsGridData> => {
-    const { site, origin, setResponseStatus } = await resolveHost()
+    const { site, origin, url, setResponseStatus } = await resolveHost()
     if (site.status === "error") {
       setResponseStatus(503)
       return { status: "error" }
@@ -53,13 +87,31 @@ const loadListingsGrid = createServerFn({ method: "GET" }).handler(
       setResponseStatus(404)
       return { status: "not_found" }
     }
-    const rows = await listPublishedListings(site.organizationId, { limit: 60 })
+    // The URL is the source of truth: parse the same filter shape the FilterBar serializes.
+    const params = url.searchParams
+    const filter = parseListingFilter(params)
+    const offset = readOffset(params)
+    const [rows, total, facets] = await Promise.all([
+      searchPublishedListings(site.organizationId, filter, { limit: PAGE_SIZE, offset }),
+      countPublishedListings(site.organizationId, filter),
+      publishedListingFacets(site.organizationId),
+    ])
     const items: SerializedListing[] = rows.map((row) => ({
       source: row.source,
       sourceListingId: row.sourceListingId,
       data: row.data as unknown as Json,
     }))
-    return { status: "ok", document: site.document as Json, items, origin }
+    return {
+      status: "ok",
+      document: site.document as Json,
+      items,
+      origin,
+      filter,
+      facets,
+      total,
+      offset,
+      pageSize: PAGE_SIZE,
+    }
   },
 )
 
@@ -162,7 +214,14 @@ export function ListingsGridPage({ data }: { data: ListingsGridData }) {
   const document = data.document as unknown as SiteDocumentV1
   return (
     <SiteShell document={document}>
-      <ListingsGrid items={data.items.map(toItem)} />
+      <ListingsSearch
+        items={data.items.map(toItem)}
+        filter={data.filter}
+        facets={data.facets}
+        total={data.total}
+        offset={data.offset}
+        pageSize={data.pageSize}
+      />
     </SiteShell>
   )
 }

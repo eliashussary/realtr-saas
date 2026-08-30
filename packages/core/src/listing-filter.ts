@@ -36,7 +36,9 @@ export const LISTING_FILTER_KEYS = [
 ] as const
 
 function posInt(value: string | null): number | undefined {
-  if (value === null) return undefined
+  // A blank string (an empty number input in a GET form) is "no value" — guard it, since Number("")
+  // is 0, not NaN, which would otherwise smuggle a spurious 0 into the filter.
+  if (value === null || value.trim() === "") return undefined
   const n = Number(value)
   return Number.isFinite(n) && n >= 0 ? Math.floor(n) : undefined
 }
