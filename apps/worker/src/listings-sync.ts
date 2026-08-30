@@ -15,6 +15,10 @@ export interface ListingsSyncDependencies {
   getSource(provider: string): ListingSource | undefined
   /** Decrypted per-tenant config for (org, provider), or null if not connected. */
   loadConfig(organizationId: string, provider: string): Promise<Record<string, unknown> | null>
+  /** The tenant's service-area bounding box, if configured — bounds what the sync pulls. */
+  loadServiceAreaBbox(
+    organizationId: string,
+  ): Promise<{ minLng: number; minLat: number; maxLng: number; maxLat: number } | null>
   repository: ListingSyncRepository
   log(message: string): void
 }
@@ -34,11 +38,21 @@ export async function handleListingsSync(
     )
   }
 
+  // A configured service area bounds the pull (the DDF source reads config.bbox as [minLng, minLat,
+  // maxLng, maxLat]). It takes precedence over any bbox in the stored integration config.
+  const serviceArea = await dependencies.loadServiceAreaBbox(job.organizationId)
+  const effectiveConfig = serviceArea
+    ? {
+        ...config,
+        bbox: [serviceArea.minLng, serviceArea.minLat, serviceArea.maxLng, serviceArea.maxLat],
+      }
+    : config
+
   const result = await runListingSync({
     organizationId: job.organizationId,
     provider: job.provider,
     source,
-    config,
+    config: effectiveConfig,
     mode: job.mode,
     repository: dependencies.repository,
   })

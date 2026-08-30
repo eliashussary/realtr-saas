@@ -2,6 +2,7 @@ import { type SQL, and, eq, gte, ilike, inArray, notInArray, or, sql } from "dri
 import type { NodePgDatabase } from "drizzle-orm/node-postgres"
 import type * as schema from "./schema"
 import { area, listing, listingSyncRun, listingSyncState } from "./schema"
+import { type ServiceAreaBBox, serviceAreaCondition } from "./service-areas"
 
 export type ListingDatabase = NodePgDatabase<typeof schema>
 
@@ -259,10 +260,15 @@ export function buildListingFilterConditions(filter: ListingFilterInput): SQL[] 
   return conditions
 }
 
-function activeScope(organizationId: string, filter: ListingFilterInput): SQL {
+function activeScope(
+  organizationId: string,
+  filter: ListingFilterInput,
+  serviceArea?: ServiceAreaBBox,
+): SQL {
   const where = and(
     eq(listing.organizationId, organizationId),
     eq(listing.status, "active"),
+    ...(serviceArea ? [serviceAreaCondition(serviceArea)] : []),
     ...buildListingFilterConditions(filter),
   )
   // `and` only returns undefined for an empty list; the two fixed predicates guarantee a value.
@@ -282,7 +288,7 @@ export async function searchListings(
   database: ListingDatabase,
   organizationId: string,
   filter: ListingFilterInput,
-  options: { limit?: number; offset?: number } = {},
+  options: { limit?: number; offset?: number; serviceArea?: ServiceAreaBBox } = {},
 ): Promise<ActiveListingRow[]> {
   return database
     .select({
@@ -292,7 +298,7 @@ export async function searchListings(
       data: listing.data,
     })
     .from(listing)
-    .where(activeScope(organizationId, filter))
+    .where(activeScope(organizationId, filter, options.serviceArea))
     .orderBy(listingOrder(filter.sort))
     .limit(options.limit ?? 25)
     .offset(options.offset ?? 0)
@@ -303,11 +309,12 @@ export async function countListings(
   database: ListingDatabase,
   organizationId: string,
   filter: ListingFilterInput,
+  options: { serviceArea?: ServiceAreaBBox } = {},
 ): Promise<number> {
   const [row] = await database
     .select({ value: sql<number>`count(*)::int` })
     .from(listing)
-    .where(activeScope(organizationId, filter))
+    .where(activeScope(organizationId, filter, options.serviceArea))
   return row?.value ?? 0
 }
 
@@ -329,8 +336,13 @@ export interface ListingFacets {
 export async function listingFacets(
   database: ListingDatabase,
   organizationId: string,
+  options: { serviceArea?: ServiceAreaBBox } = {},
 ): Promise<ListingFacets> {
-  const base = and(eq(listing.organizationId, organizationId), eq(listing.status, "active")) as SQL
+  const base = and(
+    eq(listing.organizationId, organizationId),
+    eq(listing.status, "active"),
+    ...(options.serviceArea ? [serviceAreaCondition(options.serviceArea)] : []),
+  ) as SQL
   const [types, cities] = await Promise.all([
     database
       .select({ value: listing.propertyType, count: sql<number>`count(*)::int` })
@@ -362,6 +374,7 @@ export async function listingBounds(
   database: ListingDatabase,
   organizationId: string,
   filter: ListingFilterInput,
+  options: { serviceArea?: ServiceAreaBBox } = {},
 ): Promise<ListingBounds | null> {
   const [row] = await database
     .select({
@@ -371,7 +384,7 @@ export async function listingBounds(
       maxLat: sql<number | null>`max(${listing.latitude})`,
     })
     .from(listing)
-    .where(activeScope(organizationId, filter))
+    .where(activeScope(organizationId, filter, options.serviceArea))
   if (!row || row.minLng === null || row.minLat === null) return null
   return {
     minLng: row.minLng,
@@ -393,7 +406,7 @@ export async function listingMapMarkers(
   database: ListingDatabase,
   organizationId: string,
   filter: ListingFilterInput,
-  options: { limit?: number } = {},
+  options: { limit?: number; serviceArea?: ServiceAreaBBox } = {},
 ): Promise<ListingMarker[]> {
   const rows = await database
     .select({
@@ -403,7 +416,12 @@ export async function listingMapMarkers(
       listPrice: listing.listPrice,
     })
     .from(listing)
-    .where(and(activeScope(organizationId, filter), sql`${listing.latitude} is not null`))
+    .where(
+      and(
+        activeScope(organizationId, filter, options.serviceArea),
+        sql`${listing.latitude} is not null`,
+      ),
+    )
     .limit(options.limit ?? 1000)
   return rows.map((r) => ({
     sourceListingId: r.sourceListingId,

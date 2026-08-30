@@ -18,6 +18,7 @@
     "./posts": "./src/posts.ts",
     "./areas": "./src/areas.ts",
     "./collections": "./src/collections.ts",
+    "./service-areas": "./src/service-areas.ts",
     "./errors": "./src/errors.ts"
   },
   "scripts": {

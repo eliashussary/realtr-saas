@@ -19,6 +19,7 @@ function deps(over: Partial<ListingsSyncDependencies>): ListingsSyncDependencies
   return {
     getSource: () => source(async () => ({ upserts: [] })),
     loadConfig: async () => ({ clientId: "x", clientSecret: "y" }),
+    loadServiceAreaBbox: async () => null,
     repository,
     log: vi.fn(),
     ...over,
@@ -55,6 +56,37 @@ describe("listings.sync", () => {
         deps({ getSource: () => source(async () => Promise.reject(failure)) }),
       ),
     ).rejects.toBe(failure)
+  })
+
+  it("bounds the pull with the tenant's service area when set", async () => {
+    let seenConfig: Record<string, unknown> | undefined
+    await handleListingsSync(
+      payload,
+      deps({
+        getSource: () =>
+          source(async (ctx) => {
+            seenConfig = ctx.config
+            return { upserts: [] }
+          }),
+        loadServiceAreaBbox: async () => ({ minLng: -76, minLat: 45, maxLng: -75, maxLat: 46 }),
+      }),
+    )
+    expect(seenConfig?.bbox).toEqual([-76, 45, -75, 46])
+  })
+
+  it("leaves config unchanged when no service area is set", async () => {
+    let seenConfig: Record<string, unknown> | undefined
+    await handleListingsSync(
+      payload,
+      deps({
+        getSource: () =>
+          source(async (ctx) => {
+            seenConfig = ctx.config
+            return { upserts: [] }
+          }),
+      }),
+    )
+    expect(seenConfig?.bbox).toBeUndefined()
   })
 
   it("syncs for the payload organization without logging configuration", async () => {

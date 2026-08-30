@@ -3,6 +3,7 @@ import {
   getSource,
   listConnectedListingSources,
   loadListingSourceConfig,
+  loadServiceAreaBbox,
   nodeDnsResolver,
   runDomainVerification,
   runGraceSweep,
@@ -123,6 +124,7 @@ export function createWorkerRuntime(environment: WorkerEnvironment): WorkerRunti
             handleListingsSync(job.data, {
               getSource,
               loadConfig: loadListingSourceConfig,
+              loadServiceAreaBbox,
               repository,
               log: (m) => jobLog.info(m),
             }),

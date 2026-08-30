@@ -113,6 +113,7 @@ export {
   getPublishedBlogPost,
 } from "./blog"
 export { runLeadDelivery } from "./leads-delivery"
+export { type ServiceAreaBBox, loadServiceAreaBbox } from "./service-areas"
 export {
   type PublishedCollection,
   publishedCollections,

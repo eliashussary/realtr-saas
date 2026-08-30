@@ -14,10 +14,19 @@ import {
   listingMapMarkers,
   searchListings,
 } from "@realtr/db/listings"
+import { type ServiceAreaBBox, getServiceArea } from "@realtr/db/service-areas"
 import type { ListingFilter } from "./listing-filter"
 
 // Public read side for the renderer: a tenant's currently-active listings. Kept behind core so the
-// renderer never touches the db directly and the query stays tenant-scoped.
+// renderer never touches the db directly and the query stays tenant-scoped. Every public read is also
+// constrained to the tenant's service area (if configured) so the site only shows its market.
+
+async function serviceAreaFor(organizationId: string): Promise<ServiceAreaBBox | undefined> {
+  const sa = await getServiceArea(db, organizationId)
+  return sa
+    ? { minLng: sa.minLng, minLat: sa.minLat, maxLng: sa.maxLng, maxLat: sa.maxLat }
+    : undefined
+}
 
 export type { ActiveListingRow, ListingBounds, ListingFacets, ListingMarker }
 export type { AreaFacet, AreaPolygon }
@@ -47,43 +56,49 @@ export function listFeaturedPublishedListings(
 // Public faceted search over a tenant's active listings. The renderer passes a ListingFilter parsed
 // from the URL; each helper stays tenant-scoped behind core.
 
-export function searchPublishedListings(
+export async function searchPublishedListings(
   organizationId: string,
   filter: ListingFilter,
   options: { limit?: number; offset?: number } = {},
 ): Promise<ActiveListingRow[]> {
-  return searchListings(db, organizationId, filter, options)
+  const serviceArea = await serviceAreaFor(organizationId)
+  return searchListings(db, organizationId, filter, { ...options, serviceArea })
 }
 
-export function countPublishedListings(
+export async function countPublishedListings(
   organizationId: string,
   filter: ListingFilter,
 ): Promise<number> {
-  return countListings(db, organizationId, filter)
+  const serviceArea = await serviceAreaFor(organizationId)
+  return countListings(db, organizationId, filter, { serviceArea })
 }
 
-export function publishedListingFacets(organizationId: string): Promise<ListingFacets> {
-  return listingFacets(db, organizationId)
+export async function publishedListingFacets(organizationId: string): Promise<ListingFacets> {
+  const serviceArea = await serviceAreaFor(organizationId)
+  return listingFacets(db, organizationId, { serviceArea })
 }
 
-export function publishedListingBounds(
+export async function publishedListingBounds(
   organizationId: string,
   filter: ListingFilter,
 ): Promise<ListingBounds | null> {
-  return listingBounds(db, organizationId, filter)
+  const serviceArea = await serviceAreaFor(organizationId)
+  return listingBounds(db, organizationId, filter, { serviceArea })
 }
 
-export function publishedListingMarkers(
+export async function publishedListingMarkers(
   organizationId: string,
   filter: ListingFilter,
   options: { limit?: number } = {},
 ): Promise<ListingMarker[]> {
-  return listingMapMarkers(db, organizationId, filter, options)
+  const serviceArea = await serviceAreaFor(organizationId)
+  return listingMapMarkers(db, organizationId, filter, { ...options, serviceArea })
 }
 
 /** Neighbourhood areas that contain the tenant's active listings, for the area filter. */
-export function publishedAreaFacets(organizationId: string): Promise<AreaFacet[]> {
-  return listAreaFacets(db, organizationId)
+export async function publishedAreaFacets(organizationId: string): Promise<AreaFacet[]> {
+  const serviceArea = await serviceAreaFor(organizationId)
+  return listAreaFacets(db, organizationId, { serviceArea })
 }
 
 /** GeoJSON for the given area ids, to outline the selected neighbourhoods on the map. */

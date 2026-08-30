@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm"
 import type { NodePgDatabase } from "drizzle-orm/node-postgres"
 import type * as schema from "./schema"
 import { area } from "./schema"
+import type { ServiceAreaBBox } from "./service-areas"
 
 type Database = NodePgDatabase<typeof schema>
 
@@ -80,7 +81,14 @@ export interface AreaFacet {
 export async function listAreaFacets(
   database: Database,
   organizationId: string,
+  options: { serviceArea?: ServiceAreaBBox } = {},
 ): Promise<AreaFacet[]> {
+  // When a service area is set, only listings inside it (or manual) contribute to the area facets, so
+  // neighbourhoods outside the market don't appear.
+  const sa = options.serviceArea
+  const withinService = sa
+    ? sql` and (l.source = 'manual' or l.geom && st_makeenvelope(${sa.minLng}, ${sa.minLat}, ${sa.maxLng}, ${sa.maxLat}, 4326))`
+    : sql``
   const res = await database.execute(sql`
     select a.id, a.name, a.region, count(l.id)::int as count
     from ${area} a
@@ -88,7 +96,7 @@ export async function listAreaFacets(
       on l.organization_id = ${organizationId}
       and l.status = 'active'
       and l.geom is not null
-      and st_intersects(a.geom, l.geom)
+      and st_intersects(a.geom, l.geom)${withinService}
     group by a.id, a.name, a.region
     order by count(l.id) desc, a.name asc
   `)
