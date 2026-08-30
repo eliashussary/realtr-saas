@@ -4,6 +4,7 @@ import { Field, FieldDescription, FieldLabel } from "@realtr/ui/components/field
 import { Input } from "@realtr/ui/components/input"
 import { useState } from "react"
 import { ImageUpload } from "./image-upload"
+import { MarkdownEditor } from "./markdown-editor"
 
 export interface PostFormValues {
   title: string
@@ -115,16 +116,7 @@ export function PostForm({
           </div>
         </div>
         {tab === "write" ? (
-          <textarea
-            id="post-body"
-            value={v.bodyMarkdown}
-            onChange={(e) => set({ bodyMarkdown: e.target.value })}
-            rows={16}
-            placeholder={
-              "## Heading\n\nWrite your post in **Markdown**. Add [links](https://example.com), lists, and images."
-            }
-            className="min-h-72 w-full rounded-[var(--radius-base)] border border-input bg-transparent p-3 font-mono text-sm"
-          />
+          <MarkdownEditor value={v.bodyMarkdown} onChange={(md) => set({ bodyMarkdown: md })} />
         ) : (
           <div className="min-h-72 rounded-[var(--radius-base)] border border-border p-4">
             {v.bodyMarkdown.trim() ? (

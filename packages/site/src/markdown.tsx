@@ -1,11 +1,21 @@
 import type { ComponentProps } from "react"
 import Markdown from "react-markdown"
+import rehypeRaw from "rehype-raw"
+import rehypeSanitize, { defaultSchema } from "rehype-sanitize"
 import remarkGfm from "remark-gfm"
 
-// Safe Markdown → rich text. react-markdown renders to React elements (never dangerouslySetInnerHTML)
-// and, without rehype-raw, ignores raw HTML in the source — so stored post bodies carry no HTML/XSS
-// surface. Shared by the public renderer and the dashboard live preview so they match exactly.
-// Elements are styled with our theme tokens (bg-brand, text-foreground, …) via a components map.
+// Safe Markdown → rich text. react-markdown renders to React elements (never dangerouslySetInnerHTML).
+// Raw HTML in the source (e.g. the toolbar's <u> for underline) is parsed by rehype-raw and then run
+// through rehype-sanitize with a strict allow-list — so post bodies support inline formatting incl.
+// underline while carrying no script/handler/style XSS surface. Shared by the public renderer and the
+// dashboard live preview so they match exactly. Elements are styled with our theme tokens via a map.
+
+// Extend the sanitizer's default (already script/handler-free) with the few inline tags the toolbar
+// emits. No href/src protocol widening — the default clobbers javascript:/data: URLs.
+const schema = {
+  ...defaultSchema,
+  tagNames: Array.from(new Set([...(defaultSchema.tagNames ?? []), "u", "mark"])),
+}
 
 type Components = ComponentProps<typeof Markdown>["components"]
 
@@ -66,7 +76,11 @@ const components: Components = {
 export function MarkdownContent({ markdown }: { markdown: string }) {
   return (
     <div className="text-foreground">
-      <Markdown remarkPlugins={[remarkGfm]} components={components}>
+      <Markdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeRaw, [rehypeSanitize, schema]]}
+        components={components}
+      >
         {markdown}
       </Markdown>
     </div>
