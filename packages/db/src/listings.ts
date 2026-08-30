@@ -1,4 +1,4 @@
-import { and, eq, ilike, notInArray, or, sql } from "drizzle-orm"
+import { type SQL, and, eq, gte, ilike, inArray, notInArray, or, sql } from "drizzle-orm"
 import type { NodePgDatabase } from "drizzle-orm/node-postgres"
 import type * as schema from "./schema"
 import { listing, listingSyncRun, listingSyncState } from "./schema"
@@ -210,6 +210,197 @@ export async function listFeaturedListings(
       sql`${listing.featuredRank} asc nulls last, ${listing.sourceModifiedAt} desc nulls last`,
     )
     .limit(options.limit ?? 12)
+}
+
+// ---------------------------------------------------------------------------
+// Public faceted search — filters/sorts/counts a tenant's active listings on the
+// generated facet columns. The filter shape mirrors @realtr/core's ListingFilter (defined locally so
+// this leaf package keeps no @realtr/core dependency; the caller passes a structurally-equal value).
+// ---------------------------------------------------------------------------
+
+export type ListingSortInput = "newest" | "price_asc" | "price_desc"
+
+export interface ListingFilterInput {
+  minPrice?: number
+  maxPrice?: number
+  minBeds?: number
+  minBaths?: number
+  propertyType?: string[]
+  city?: string[]
+  areaIds?: string[] // neighbourhood polygons — wired to a PostGIS join in the areas slice
+  sort?: ListingSortInput
+}
+
+/** Build the SQL predicates for a filter's narrowing dimensions (not org/status — the caller adds those). */
+export function buildListingFilterConditions(filter: ListingFilterInput): SQL[] {
+  const conditions: SQL[] = []
+  // list_price is numeric; compare against a numeric literal to keep the index usable.
+  if (typeof filter.minPrice === "number") {
+    conditions.push(sql`${listing.listPrice} >= ${filter.minPrice}`)
+  }
+  if (typeof filter.maxPrice === "number") {
+    conditions.push(sql`${listing.listPrice} <= ${filter.maxPrice}`)
+  }
+  if (typeof filter.minBeds === "number") conditions.push(gte(listing.bedrooms, filter.minBeds))
+  if (typeof filter.minBaths === "number") conditions.push(gte(listing.bathrooms, filter.minBaths))
+  if (filter.propertyType?.length)
+    conditions.push(inArray(listing.propertyType, filter.propertyType))
+  if (filter.city?.length) conditions.push(inArray(listing.city, filter.city))
+  return conditions
+}
+
+function activeScope(organizationId: string, filter: ListingFilterInput): SQL {
+  const where = and(
+    eq(listing.organizationId, organizationId),
+    eq(listing.status, "active"),
+    ...buildListingFilterConditions(filter),
+  )
+  // `and` only returns undefined for an empty list; the two fixed predicates guarantee a value.
+  return where as SQL
+}
+
+function listingOrder(sort: ListingSortInput | undefined): SQL {
+  if (sort === "price_asc") return sql`${listing.listPrice} asc nulls last`
+  if (sort === "price_desc") return sql`${listing.listPrice} desc nulls last`
+  if (sort === "newest") return sql`${listing.sourceModifiedAt} desc nulls last`
+  // Default: featured curation first, then upstream recency (matches the public grid order).
+  return publicOrder
+}
+
+/** Filtered page of a tenant's active listings for the public search. */
+export async function searchListings(
+  database: ListingDatabase,
+  organizationId: string,
+  filter: ListingFilterInput,
+  options: { limit?: number; offset?: number } = {},
+): Promise<ActiveListingRow[]> {
+  return database
+    .select({
+      source: listing.source,
+      sourceListingId: listing.sourceListingId,
+      sourceKey: listing.sourceKey,
+      data: listing.data,
+    })
+    .from(listing)
+    .where(activeScope(organizationId, filter))
+    .orderBy(listingOrder(filter.sort))
+    .limit(options.limit ?? 25)
+    .offset(options.offset ?? 0)
+}
+
+/** Total matches for a filter (for pagination + the results count). */
+export async function countListings(
+  database: ListingDatabase,
+  organizationId: string,
+  filter: ListingFilterInput,
+): Promise<number> {
+  const [row] = await database
+    .select({ value: sql<number>`count(*)::int` })
+    .from(listing)
+    .where(activeScope(organizationId, filter))
+  return row?.value ?? 0
+}
+
+export interface ListingFacet {
+  value: string
+  count: number
+}
+
+export interface ListingFacets {
+  propertyTypes: ListingFacet[]
+  cities: ListingFacet[]
+}
+
+/**
+ * Available property-type and city facets (with counts) across a tenant's active listings, so the
+ * filter UI can offer only values that exist. Counts are over the full active set (not the current
+ * selection) — a stable menu the user filters down from.
+ */
+export async function listingFacets(
+  database: ListingDatabase,
+  organizationId: string,
+): Promise<ListingFacets> {
+  const base = and(eq(listing.organizationId, organizationId), eq(listing.status, "active")) as SQL
+  const [types, cities] = await Promise.all([
+    database
+      .select({ value: listing.propertyType, count: sql<number>`count(*)::int` })
+      .from(listing)
+      .where(and(base, sql`${listing.propertyType} is not null`))
+      .groupBy(listing.propertyType)
+      .orderBy(sql`count(*) desc`),
+    database
+      .select({ value: listing.city, count: sql<number>`count(*)::int` })
+      .from(listing)
+      .where(and(base, sql`${listing.city} is not null`))
+      .groupBy(listing.city)
+      .orderBy(sql`count(*) desc`),
+  ])
+  const clean = (rows: { value: string | null; count: number }[]): ListingFacet[] =>
+    rows.filter((r): r is ListingFacet => r.value !== null)
+  return { propertyTypes: clean(types), cities: clean(cities) }
+}
+
+export interface ListingBounds {
+  minLng: number
+  minLat: number
+  maxLng: number
+  maxLat: number
+}
+
+/** Bounding box of the filtered set, for fitting the map. Null when no match has coordinates. */
+export async function listingBounds(
+  database: ListingDatabase,
+  organizationId: string,
+  filter: ListingFilterInput,
+): Promise<ListingBounds | null> {
+  const [row] = await database
+    .select({
+      minLng: sql<number | null>`min(${listing.longitude})`,
+      minLat: sql<number | null>`min(${listing.latitude})`,
+      maxLng: sql<number | null>`max(${listing.longitude})`,
+      maxLat: sql<number | null>`max(${listing.latitude})`,
+    })
+    .from(listing)
+    .where(activeScope(organizationId, filter))
+  if (!row || row.minLng === null || row.minLat === null) return null
+  return {
+    minLng: row.minLng,
+    minLat: row.minLat,
+    maxLng: row.maxLng as number,
+    maxLat: row.maxLat as number,
+  }
+}
+
+export interface ListingMarker {
+  sourceListingId: string
+  latitude: number
+  longitude: number
+  listPrice: number | null
+}
+
+/** Lightweight markers (id + point + price) for every filtered listing with coordinates. */
+export async function listingMapMarkers(
+  database: ListingDatabase,
+  organizationId: string,
+  filter: ListingFilterInput,
+  options: { limit?: number } = {},
+): Promise<ListingMarker[]> {
+  const rows = await database
+    .select({
+      sourceListingId: listing.sourceListingId,
+      latitude: listing.latitude,
+      longitude: listing.longitude,
+      listPrice: listing.listPrice,
+    })
+    .from(listing)
+    .where(and(activeScope(organizationId, filter), sql`${listing.latitude} is not null`))
+    .limit(options.limit ?? 1000)
+  return rows.map((r) => ({
+    sourceListingId: r.sourceListingId,
+    latitude: r.latitude as number,
+    longitude: r.longitude as number,
+    listPrice: r.listPrice === null ? null : Number(r.listPrice),
+  }))
 }
 
 export interface ManagementListingRow {

@@ -1,8 +1,11 @@
+import { sql } from "drizzle-orm"
 import {
   boolean,
+  doublePrecision,
   index,
   integer,
   jsonb,
+  numeric,
   pgTable,
   text,
   timestamp,
@@ -36,6 +39,19 @@ export const listing = pgTable(
     featured: boolean().notNull().default(false),
     featuredRank: integer(), // order among featured listings; lower first, nulls last
     data: jsonb().$type<Record<string, unknown>>().notNull().default({}),
+    // Filterable facets projected out of the normalized `data` blob as stored generated columns, so
+    // the public search can filter/sort/index on them without touching jsonb at query time. They are
+    // derived (never written) — the sync/manual upsert only ever writes `data`, and Postgres keeps
+    // these in sync, so they survive every re-sync by construction (ADR 0006). Paths match
+    // @realtr/core's normalizeDdfProperty output.
+    listPrice: numeric().generatedAlwaysAs(sql`((data ->> 'listPrice')::numeric)`),
+    bedrooms: integer().generatedAlwaysAs(sql`((data ->> 'bedrooms')::integer)`),
+    bathrooms: integer().generatedAlwaysAs(sql`((data ->> 'bathrooms')::integer)`),
+    propertyType: text().generatedAlwaysAs(sql`(data ->> 'propertyType')`),
+    city: text().generatedAlwaysAs(sql`(data #>> '{address,city}')`),
+    province: text().generatedAlwaysAs(sql`(data #>> '{address,province}')`),
+    latitude: doublePrecision().generatedAlwaysAs(sql`((data ->> 'latitude')::double precision)`),
+    longitude: doublePrecision().generatedAlwaysAs(sql`((data ->> 'longitude')::double precision)`),
     createdAt: timestamp().notNull().defaultNow(),
     updatedAt: timestamp().notNull().defaultNow(),
   },
@@ -46,6 +62,13 @@ export const listing = pgTable(
       t.sourceListingId,
     ),
     index("listing_org_source_source_key_idx").on(t.organizationId, t.source, t.sourceKey),
+    // Public faceted-search access paths, all tenant + status scoped (the public grid always filters
+    // to one org's active listings, then narrows by a facet).
+    index("listing_org_status_price_idx").on(t.organizationId, t.status, t.listPrice),
+    index("listing_org_status_beds_idx").on(t.organizationId, t.status, t.bedrooms),
+    index("listing_org_status_baths_idx").on(t.organizationId, t.status, t.bathrooms),
+    index("listing_org_status_type_idx").on(t.organizationId, t.status, t.propertyType),
+    index("listing_org_status_city_idx").on(t.organizationId, t.status, t.city),
   ],
 )
 

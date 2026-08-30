@@ -38,9 +38,17 @@ export { resolvePreview } from "./preview"
 export { resolvePublishedSite, type PublishedSiteResult } from "./published"
 export {
   type ActiveListingRow,
+  type ListingBounds,
+  type ListingFacets,
+  type ListingMarker,
   listPublishedListings,
   getPublishedListing,
   listFeaturedPublishedListings,
+  searchPublishedListings,
+  countPublishedListings,
+  publishedListingFacets,
+  publishedListingBounds,
+  publishedListingMarkers,
 } from "./listings"
 export {
   type AssetRecord,
@@ -101,6 +109,15 @@ export {
   getPublishedBlogPost,
 } from "./blog"
 export { runLeadDelivery } from "./leads-delivery"
+export {
+  type ListingFilter,
+  type ListingSort,
+  LISTING_FILTER_KEYS,
+  parseListingFilter,
+  listingFilterToSearchParams,
+  listingFilterToQueryString,
+  isEmptyListingFilter,
+} from "./listing-filter"
 export {
   type PlanId,
   type Plan,
