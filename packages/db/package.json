@@ -15,7 +15,8 @@
     "./domains": "./src/domains.ts",
     "./admin": "./src/admin.ts",
     "./data-export": "./src/data-export.ts",
-    "./posts": "./src/posts.ts"
+    "./posts": "./src/posts.ts",
+    "./errors": "./src/errors.ts"
   },
   "scripts": {
     "db:generate": "drizzle-kit generate",

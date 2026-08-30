@@ -63,8 +63,7 @@ describe("tenant-scoped listing identity", () => {
     await database.db.insert(listing).values(identity)
 
     await expect(database.db.insert(listing).values(identity)).rejects.toMatchObject({
-      constraint: "listing_organization_source_source_listing_id_unique",
-      code: "23505",
+      cause: { constraint: "listing_organization_source_source_listing_id_unique", code: "23505" },
     })
   })
 })

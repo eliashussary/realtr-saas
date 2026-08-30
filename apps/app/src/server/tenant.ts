@@ -376,7 +376,8 @@ export const changeSubdomain = createServerFn({ method: "POST" })
       }
     } catch (error) {
       // Unique-violation race: someone claimed it between the check and the write.
-      if ((error as { code?: string })?.code === "23505") {
+      const { isUniqueViolation } = await import("@realtr/db/errors")
+      if (isUniqueViolation(error)) {
         return { ok: false as const, code: "taken" as const }
       }
       throw error

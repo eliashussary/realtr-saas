@@ -101,7 +101,9 @@ describe("site document persistence", () => {
         createdByUserId: alpha.ids.userId,
         basedOnRevisionId: betaRevision.id,
       }),
-    ).rejects.toMatchObject({ constraint: "site_revision_based_on_revision_fk", code: "23503" })
+    ).rejects.toMatchObject({
+      cause: { constraint: "site_revision_based_on_revision_fk", code: "23503" },
+    })
 
     await expect(
       repository.createRevision({
@@ -114,7 +116,9 @@ describe("site document persistence", () => {
         actorType: "user",
         createdByUserId: beta.ids.userId,
       }),
-    ).rejects.toMatchObject({ constraint: "site_revision_organization_site_fk", code: "23503" })
+    ).rejects.toMatchObject({
+      cause: { constraint: "site_revision_organization_site_fk", code: "23503" },
+    })
   })
 
   it("enforces preview and published-revision kind boundaries", async () => {
@@ -139,8 +143,7 @@ describe("site document persistence", () => {
         .set({ publishedRevisionId: preview.id })
         .where(eq(siteDocumentState.siteId, alpha.site.id)),
     ).rejects.toMatchObject({
-      constraint: "site_document_state_published_revision_fk",
-      code: "23503",
+      cause: { constraint: "site_document_state_published_revision_fk", code: "23503" },
     })
 
     await expect(
@@ -152,7 +155,9 @@ describe("site document persistence", () => {
         createdByUserId: beta.ids.userId,
         expiresAt: new Date(Date.now() + 60_000),
       }),
-    ).rejects.toMatchObject({ constraint: "site_preview_grant_revision_fk", code: "23503" })
+    ).rejects.toMatchObject({
+      cause: { constraint: "site_preview_grant_revision_fk", code: "23503" },
+    })
   })
 
   it("makes revisions append-only at the database boundary", async () => {
@@ -170,7 +175,7 @@ describe("site document persistence", () => {
         .update(siteRevision)
         .set({ reason: "mutated" })
         .where(eq(siteRevision.id, revision.id)),
-    ).rejects.toMatchObject({ code: "55000" })
+    ).rejects.toMatchObject({ cause: { code: "55000" } })
 
     const stored = await database.db
       .select({ reason: siteRevision.reason })
@@ -194,7 +199,9 @@ describe("site document persistence", () => {
         sourceDraftVersion: 1n,
         actorType: "system",
       }),
-    ).rejects.toMatchObject({ constraint: "site_revision_publication_number_check", code: "23514" })
+    ).rejects.toMatchObject({
+      cause: { constraint: "site_revision_publication_number_check", code: "23514" },
+    })
 
     const [preview] = await database.db
       .insert(siteRevision)
@@ -219,7 +226,9 @@ describe("site document persistence", () => {
         createdByUserId: alpha.ids.userId,
         expiresAt: new Date(0),
       }),
-    ).rejects.toMatchObject({ constraint: "site_preview_grant_expiry_check", code: "23514" })
+    ).rejects.toMatchObject({
+      cause: { constraint: "site_preview_grant_expiry_check", code: "23514" },
+    })
 
     const result = await database.db.execute(
       sql`select count(*)::int as count from site_preview_grant`,

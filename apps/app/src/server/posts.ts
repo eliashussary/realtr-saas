@@ -1,3 +1,4 @@
+import { isUniqueViolation } from "@realtr/db/errors"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 import { can } from "../lib/permissions"
@@ -50,12 +51,6 @@ function toRepoInput(data: z.infer<typeof postInput>, authorMemberId: string | n
     noIndex: data.noIndex,
     authorMemberId,
   }
-}
-
-function isUniqueViolation(error: unknown): boolean {
-  return (
-    typeof error === "object" && error !== null && (error as { code?: string }).code === "23505"
-  )
 }
 
 export interface PostListItem {
