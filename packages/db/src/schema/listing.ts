@@ -13,6 +13,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core"
 import { member, organization } from "./auth"
+import { geometry } from "./spatial"
 
 // Ingested listings. Provider identity is tenant-local: sync conflict targets and lookups use
 // `organizationId` + `source` + `sourceListingId`. `sourceKey` (DDF ListingKey) is the cross-tenant
@@ -52,6 +53,11 @@ export const listing = pgTable(
     province: text().generatedAlwaysAs(sql`(data #>> '{address,province}')`),
     latitude: doublePrecision().generatedAlwaysAs(sql`((data ->> 'latitude')::double precision)`),
     longitude: doublePrecision().generatedAlwaysAs(sql`((data ->> 'longitude')::double precision)`),
+    // PostGIS point for area (polygon) intersection, derived straight from `data` — a generated column
+    // may not reference other generated columns, so it reads lng/lat out of the blob directly.
+    geom: geometry("geom", { type: "Point" }).generatedAlwaysAs(
+      sql`st_setsrid(st_makepoint((data ->> 'longitude')::double precision, (data ->> 'latitude')::double precision), 4326)`,
+    ),
     createdAt: timestamp().notNull().defaultNow(),
     updatedAt: timestamp().notNull().defaultNow(),
   },
@@ -69,6 +75,8 @@ export const listing = pgTable(
     index("listing_org_status_baths_idx").on(t.organizationId, t.status, t.bathrooms),
     index("listing_org_status_type_idx").on(t.organizationId, t.status, t.propertyType),
     index("listing_org_status_city_idx").on(t.organizationId, t.status, t.city),
+    // Spatial index for point-in-polygon (area) intersection.
+    index("listing_geom_gist").using("gist", t.geom),
   ],
 )
 

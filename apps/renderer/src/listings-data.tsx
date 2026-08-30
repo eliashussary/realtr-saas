@@ -1,4 +1,6 @@
 import {
+  type AreaFacet,
+  type AreaPolygon,
   type ListingBounds,
   type ListingFacets,
   type ListingFilter,
@@ -6,6 +8,8 @@ import {
   countPublishedListings,
   getPublishedListing,
   parseListingFilter,
+  publishedAreaFacets,
+  publishedAreaPolygons,
   publishedListingBounds,
   publishedListingFacets,
   publishedListingMarkers,
@@ -57,6 +61,8 @@ export type ListingsGridData =
       markers: ListingMarker[]
       bounds: ListingBounds | null
       mapStyleUrl: string
+      areaFacets: AreaFacet[]
+      areaPolygons: AreaPolygon[]
     }
   | { status: "not_found" }
   | { status: "error" }
@@ -101,12 +107,15 @@ const loadListingsGrid = createServerFn({ method: "GET" }).handler(
     const params = url.searchParams
     const filter = parseListingFilter(params)
     const offset = readOffset(params)
-    const [rows, total, facets, markers, bounds] = await Promise.all([
+    const [rows, total, facets, markers, bounds, areaFacets, areaPolygons] = await Promise.all([
       searchPublishedListings(site.organizationId, filter, { limit: PAGE_SIZE, offset }),
       countPublishedListings(site.organizationId, filter),
       publishedListingFacets(site.organizationId),
       publishedListingMarkers(site.organizationId, filter, { limit: MAP_MARKER_LIMIT }),
       publishedListingBounds(site.organizationId, filter),
+      publishedAreaFacets(site.organizationId),
+      // Only fetch outline polygons for the areas actually selected — nothing to draw otherwise.
+      filter.areaIds?.length ? publishedAreaPolygons(filter.areaIds) : Promise.resolve([]),
     ])
     const items: SerializedListing[] = rows.map((row) => ({
       source: row.source,
@@ -126,6 +135,8 @@ const loadListingsGrid = createServerFn({ method: "GET" }).handler(
       markers,
       bounds,
       mapStyleUrl: listingMapStyleUrl(),
+      areaFacets,
+      areaPolygons,
     }
   },
 )
@@ -239,6 +250,8 @@ export function ListingsGridPage({ data }: { data: ListingsGridData }) {
         markers={data.markers}
         bounds={data.bounds}
         mapStyleUrl={data.mapStyleUrl}
+        areaFacets={data.areaFacets}
+        areaPolygons={data.areaPolygons}
       />
     </SiteShell>
   )

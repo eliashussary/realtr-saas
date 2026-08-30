@@ -1,4 +1,4 @@
-import type { ListingBounds, ListingMarker } from "@realtr/core"
+import type { AreaPolygon, ListingBounds, ListingMarker } from "@realtr/core"
 import type { Map as MlMap } from "maplibre-gl"
 import { useEffect, useRef } from "react"
 import "maplibre-gl/dist/maplibre-gl.css"
@@ -19,14 +19,31 @@ function priceLabel(price: number | null): string {
   return price === null ? "—" : CAD.format(price)
 }
 
+// Turn area GeoJSON rows into a FeatureCollection for a MapLibre source. Bad JSON is skipped rather
+// than crashing the map.
+function areaFeatureCollection(polygons: AreaPolygon[]) {
+  const features = polygons.flatMap((p) => {
+    try {
+      return [
+        { type: "Feature" as const, geometry: JSON.parse(p.geojson), properties: { name: p.name } },
+      ]
+    } catch {
+      return []
+    }
+  })
+  return { type: "FeatureCollection" as const, features }
+}
+
 export function ListingsMap({
   markers,
   bounds,
   styleUrl,
+  areaPolygons,
 }: {
   markers: ListingMarker[]
   bounds: ListingBounds | null
   styleUrl: string
+  areaPolygons: AreaPolygon[]
 }) {
   const container = useRef<HTMLDivElement>(null)
 
@@ -62,6 +79,29 @@ export function ListingsMap({
         cleanups.push(() => marker.remove())
       }
 
+      // Outline the selected neighbourhood(s). Sources/layers require the style to be loaded first.
+      if (areaPolygons.length > 0) {
+        const collection = areaFeatureCollection(areaPolygons)
+        const draw = () => {
+          if (!map || map.getSource("areas")) return
+          map.addSource("areas", { type: "geojson", data: collection })
+          map.addLayer({
+            id: "areas-fill",
+            type: "fill",
+            source: "areas",
+            paint: { "fill-color": "#2563eb", "fill-opacity": 0.08 },
+          })
+          map.addLayer({
+            id: "areas-line",
+            type: "line",
+            source: "areas",
+            paint: { "line-color": "#2563eb", "line-width": 2 },
+          })
+        }
+        if (map.isStyleLoaded()) draw()
+        else map.once("load", draw)
+      }
+
       if (bounds) {
         map.fitBounds(
           [
@@ -84,7 +124,7 @@ export function ListingsMap({
       for (const c of cleanups) c()
       map?.remove()
     }
-  }, [markers, bounds, styleUrl])
+  }, [markers, bounds, styleUrl, areaPolygons])
 
   if (markers.length === 0) {
     return (

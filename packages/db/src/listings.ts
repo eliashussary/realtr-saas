@@ -1,7 +1,7 @@
 import { type SQL, and, eq, gte, ilike, inArray, notInArray, or, sql } from "drizzle-orm"
 import type { NodePgDatabase } from "drizzle-orm/node-postgres"
 import type * as schema from "./schema"
-import { listing, listingSyncRun, listingSyncState } from "./schema"
+import { area, listing, listingSyncRun, listingSyncState } from "./schema"
 
 export type ListingDatabase = NodePgDatabase<typeof schema>
 
@@ -246,6 +246,16 @@ export function buildListingFilterConditions(filter: ListingFilterInput): SQL[] 
   if (filter.propertyType?.length)
     conditions.push(inArray(listing.propertyType, filter.propertyType))
   if (filter.city?.length) conditions.push(inArray(listing.city, filter.city))
+  if (filter.areaIds?.length) {
+    // Keep listings whose point falls inside any of the selected neighbourhood polygons (PostGIS).
+    const ids = sql.join(
+      filter.areaIds.map((id) => sql`${id}`),
+      sql`, `,
+    )
+    conditions.push(
+      sql`exists (select 1 from ${area} where ${area.id} in (${ids}) and st_intersects(${area.geom}, ${listing.geom}))`,
+    )
+  }
   return conditions
 }
 

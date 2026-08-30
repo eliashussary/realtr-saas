@@ -1,4 +1,5 @@
 import { db } from "@realtr/db"
+import { type AreaFacet, type AreaPolygon, getAreaPolygons, listAreaFacets } from "@realtr/db/areas"
 import {
   type ActiveListingRow,
   type ListingBounds,
@@ -19,6 +20,7 @@ import type { ListingFilter } from "./listing-filter"
 // renderer never touches the db directly and the query stays tenant-scoped.
 
 export type { ActiveListingRow, ListingBounds, ListingFacets, ListingMarker }
+export type { AreaFacet, AreaPolygon }
 
 export function listPublishedListings(
   organizationId: string,
@@ -77,4 +79,14 @@ export function publishedListingMarkers(
   options: { limit?: number } = {},
 ): Promise<ListingMarker[]> {
   return listingMapMarkers(db, organizationId, filter, options)
+}
+
+/** Neighbourhood areas that contain the tenant's active listings, for the area filter. */
+export function publishedAreaFacets(organizationId: string): Promise<AreaFacet[]> {
+  return listAreaFacets(db, organizationId)
+}
+
+/** GeoJSON for the given area ids, to outline the selected neighbourhoods on the map. */
+export function publishedAreaPolygons(ids: ReadonlyArray<string>): Promise<AreaPolygon[]> {
+  return getAreaPolygons(db, ids)
 }

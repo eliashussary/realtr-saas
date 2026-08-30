@@ -1,4 +1,6 @@
 import {
+  type AreaFacet,
+  type AreaPolygon,
   type ListingBounds,
   type ListingFacets,
   type ListingFilter,
@@ -106,7 +108,11 @@ const CONTROL = "rounded-md border border-border bg-background px-2 py-1.5 text-
 // A native GET form: submitting sets the querystring the loader parses. Works with no JS (the Apply
 // button); when hydrated, each control auto-submits on change for an instant-filter feel. Beds/baths
 // are "at least"; property type + city are drawn from the tenant's actual inventory (facets).
-function FilterBar({ filter, facets }: { filter: ListingFilter; facets: ListingFacets }) {
+function FilterBar({
+  filter,
+  facets,
+  areaFacets,
+}: { filter: ListingFilter; facets: ListingFacets; areaFacets: AreaFacet[] }) {
   const submitOnChange = (event: { currentTarget: { form: HTMLFormElement | null } }) =>
     event.currentTarget.form?.requestSubmit()
   const minMax = [1, 2, 3, 4, 5]
@@ -206,6 +212,24 @@ function FilterBar({ filter, facets }: { filter: ListingFilter; facets: ListingF
           </select>
         </label>
       ) : null}
+      {areaFacets.length > 0 ? (
+        <label className="flex flex-col gap-1 text-xs text-muted">
+          Neighbourhood
+          <select
+            name="areaIds"
+            defaultValue={filter.areaIds?.[0] ?? ""}
+            onChange={submitOnChange}
+            className={CONTROL}
+          >
+            <option value="">Any area</option>
+            {areaFacets.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name} ({a.count})
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
       <label className="flex flex-col gap-1 text-xs text-muted">
         Sort
         <select
@@ -282,6 +306,8 @@ export interface ListingsSearchProps {
   markers: ListingMarker[]
   bounds: ListingBounds | null
   mapStyleUrl: string
+  areaFacets: AreaFacet[]
+  areaPolygons: AreaPolygon[]
 }
 
 /**
@@ -299,6 +325,8 @@ export function ListingsSearch({
   markers,
   bounds,
   mapStyleUrl,
+  areaFacets,
+  areaPolygons,
 }: ListingsSearchProps) {
   const [view, setView] = useState<"list" | "map">("list")
   return (
@@ -307,7 +335,7 @@ export function ListingsSearch({
         <h1 className="font-heading text-2xl font-bold">
           {total} {total === 1 ? "listing" : "listings"}
         </h1>
-        <FilterBar filter={filter} facets={facets} />
+        <FilterBar filter={filter} facets={facets} areaFacets={areaFacets} />
       </div>
 
       {/* Mobile view switch — desktop shows both panes so it is hidden there. */}
@@ -346,7 +374,12 @@ export function ListingsSearch({
             view === "list" ? "hidden lg:block" : "block"
           } h-[70vh] lg:sticky lg:top-4 lg:h-[calc(100vh-8rem)]`}
         >
-          <ListingsMap markers={markers} bounds={bounds} styleUrl={mapStyleUrl} />
+          <ListingsMap
+            markers={markers}
+            bounds={bounds}
+            styleUrl={mapStyleUrl}
+            areaPolygons={areaPolygons}
+          />
         </div>
       </div>
     </section>
