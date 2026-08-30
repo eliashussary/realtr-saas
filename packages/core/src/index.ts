@@ -114,6 +114,11 @@ export {
 } from "./blog"
 export { runLeadDelivery } from "./leads-delivery"
 export {
+  type PublishedCollection,
+  publishedCollections,
+  publishedCollectionBySlug,
+} from "./collections"
+export {
   type ListingFilter,
   type ListingSort,
   LISTING_FILTER_KEYS,

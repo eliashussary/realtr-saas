@@ -86,8 +86,8 @@ export function CollectionForm({
   const setFilter = (patch: Partial<ListingFilter>) =>
     setV((prev) => ({ ...prev, filter: { ...prev.filter, ...patch } }))
 
-  // Live "how many listings match" — debounced so typing doesn't spam the server.
-  const filterKey = JSON.stringify(v.filter)
+  // Live "how many listings match" — debounced so typing doesn't spam the server. v.filter is a fresh
+  // object only when the filter actually changes (setFilter), so it is the right dependency.
   useEffect(() => {
     let cancelled = false
     const t = setTimeout(async () => {
@@ -98,8 +98,7 @@ export function CollectionForm({
       cancelled = true
       clearTimeout(t)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- filterKey captures the filter contents
-  }, [filterKey])
+  }, [v.filter])
 
   return (
     <form

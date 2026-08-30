@@ -261,7 +261,16 @@ function Pagination({
   offset,
   pageSize,
   total,
-}: { filter: ListingFilter; offset: number; pageSize: number; total: number }) {
+  hrefFor,
+}: {
+  filter: ListingFilter
+  offset: number
+  pageSize: number
+  total: number
+  // Collection pages page within their own URL; default is the /listings querystring.
+  hrefFor?: (offset: number) => string
+}) {
+  const href = hrefFor ?? ((o: number) => listingsHref(filter, o))
   const from = total === 0 ? 0 : offset + 1
   const to = Math.min(offset + pageSize, total)
   const hasPrev = offset > 0
@@ -271,7 +280,7 @@ function Pagination({
     <nav className="mt-8 flex items-center justify-between text-sm">
       {hasPrev ? (
         <a
-          href={listingsHref(filter, Math.max(0, offset - pageSize))}
+          href={href(Math.max(0, offset - pageSize))}
           className="rounded-md border border-border px-3 py-1.5 hover:bg-muted/10"
         >
           ← Previous
@@ -284,7 +293,7 @@ function Pagination({
       </span>
       {hasNext ? (
         <a
-          href={listingsHref(filter, offset + pageSize)}
+          href={href(offset + pageSize)}
           className="rounded-md border border-border px-3 py-1.5 hover:bg-muted/10"
         >
           Next →
@@ -308,12 +317,20 @@ export interface ListingsSearchProps {
   mapStyleUrl: string
   areaFacets: AreaFacet[]
   areaPolygons: AreaPolygon[]
+  // Collection-page mode: a custom heading/description instead of the count H1, the FilterBar hidden,
+  // and a "refine in full search" link to the given href.
+  heading?: string
+  description?: string
+  hideFilter?: boolean
+  refineHref?: string
+  paginationHref?: (offset: number) => string
 }
 
 /**
  * The public faceted listings page: FilterBar + result count, then a results column beside a map.
  * Desktop shows both (map sticky); mobile toggles between List and Map. Without JS the list shows and
  * the toggle is inert — the map is a progressive enhancement, the URL-driven list is the baseline.
+ * Reused for collection pages via the heading/hideFilter props.
  */
 export function ListingsSearch({
   items,
@@ -327,15 +344,38 @@ export function ListingsSearch({
   mapStyleUrl,
   areaFacets,
   areaPolygons,
+  heading,
+  description,
+  hideFilter,
+  refineHref,
+  paginationHref,
 }: ListingsSearchProps) {
   const [view, setView] = useState<"list" | "map">("list")
   return (
     <section className="px-6 py-8">
       <div className="flex flex-col gap-4">
-        <h1 className="font-heading text-2xl font-bold">
-          {total} {total === 1 ? "listing" : "listings"}
-        </h1>
-        <FilterBar filter={filter} facets={facets} areaFacets={areaFacets} />
+        {heading ? (
+          <div>
+            <h1 className="font-heading text-3xl font-bold">{heading}</h1>
+            {description ? <p className="mt-1 text-muted">{description}</p> : null}
+            <p className="mt-1 text-sm text-muted">
+              {total} {total === 1 ? "listing" : "listings"}
+              {refineHref ? (
+                <>
+                  {" · "}
+                  <a href={refineHref} className="text-brand hover:underline">
+                    Refine in full search →
+                  </a>
+                </>
+              ) : null}
+            </p>
+          </div>
+        ) : (
+          <h1 className="font-heading text-2xl font-bold">
+            {total} {total === 1 ? "listing" : "listings"}
+          </h1>
+        )}
+        {hideFilter ? null : <FilterBar filter={filter} facets={facets} areaFacets={areaFacets} />}
       </div>
 
       {/* Mobile view switch — desktop shows both panes so it is hidden there. */}
@@ -365,7 +405,13 @@ export function ListingsSearch({
               ))}
             </div>
           )}
-          <Pagination filter={filter} offset={offset} pageSize={pageSize} total={total} />
+          <Pagination
+            filter={filter}
+            offset={offset}
+            pageSize={pageSize}
+            total={total}
+            hrefFor={paginationHref}
+          />
           {items.some((item) => item.source === "ddf") ? <ListingAttribution /> : null}
         </div>
 
