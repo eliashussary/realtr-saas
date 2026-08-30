@@ -1,5 +1,13 @@
-import { type ListingFacets, type ListingFilter, listingFilterToSearchParams } from "@realtr/core"
+import {
+  type ListingBounds,
+  type ListingFacets,
+  type ListingFilter,
+  type ListingMarker,
+  listingFilterToSearchParams,
+} from "@realtr/core"
+import { useState } from "react"
 import { type ListingView, toListingView } from "./listing-view"
+import { ListingsMap } from "./listings-map"
 
 export interface ListingItem {
   source: string
@@ -271,9 +279,16 @@ export interface ListingsSearchProps {
   total: number
   offset: number
   pageSize: number
+  markers: ListingMarker[]
+  bounds: ListingBounds | null
+  mapStyleUrl: string
 }
 
-/** The public faceted listings page: FilterBar + result count + grid + pagination. */
+/**
+ * The public faceted listings page: FilterBar + result count, then a results column beside a map.
+ * Desktop shows both (map sticky); mobile toggles between List and Map. Without JS the list shows and
+ * the toggle is inert — the map is a progressive enhancement, the URL-driven list is the baseline.
+ */
 export function ListingsSearch({
   items,
   filter,
@@ -281,7 +296,11 @@ export function ListingsSearch({
   total,
   offset,
   pageSize,
+  markers,
+  bounds,
+  mapStyleUrl,
 }: ListingsSearchProps) {
+  const [view, setView] = useState<"list" | "map">("list")
   return (
     <section className="px-6 py-8">
       <div className="flex flex-col gap-4">
@@ -290,24 +309,65 @@ export function ListingsSearch({
         </h1>
         <FilterBar filter={filter} facets={facets} />
       </div>
-      {items.length === 0 ? (
-        <p className="mt-8 text-muted">
-          No listings match your filters. Try widening your search or{" "}
-          <a href="/listings" className="text-brand hover:underline">
-            clearing them
-          </a>
-          .
-        </p>
-      ) : (
-        <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {items.map((item) => (
-            <ListingCard key={item.sourceListingId} item={item} />
-          ))}
+
+      {/* Mobile view switch — desktop shows both panes so it is hidden there. */}
+      <div className="mt-4 flex gap-2 lg:hidden">
+        <ViewToggle active={view === "list"} onClick={() => setView("list")}>
+          List
+        </ViewToggle>
+        <ViewToggle active={view === "map"} onClick={() => setView("map")}>
+          Map
+        </ViewToggle>
+      </div>
+
+      <div className="mt-6 lg:grid lg:grid-cols-[1fr_minmax(0,460px)] lg:gap-6">
+        <div className={view === "map" ? "hidden lg:block" : "block"}>
+          {items.length === 0 ? (
+            <p className="text-muted">
+              No listings match your filters. Try widening your search or{" "}
+              <a href="/listings" className="text-brand hover:underline">
+                clearing them
+              </a>
+              .
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
+              {items.map((item) => (
+                <ListingCard key={item.sourceListingId} item={item} />
+              ))}
+            </div>
+          )}
+          <Pagination filter={filter} offset={offset} pageSize={pageSize} total={total} />
+          {items.some((item) => item.source === "ddf") ? <ListingAttribution /> : null}
         </div>
-      )}
-      <Pagination filter={filter} offset={offset} pageSize={pageSize} total={total} />
-      {items.some((item) => item.source === "ddf") ? <ListingAttribution /> : null}
+
+        <div
+          className={`${
+            view === "list" ? "hidden lg:block" : "block"
+          } h-[70vh] lg:sticky lg:top-4 lg:h-[calc(100vh-8rem)]`}
+        >
+          <ListingsMap markers={markers} bounds={bounds} styleUrl={mapStyleUrl} />
+        </div>
+      </div>
     </section>
+  )
+}
+
+function ViewToggle({
+  active,
+  onClick,
+  children,
+}: { active: boolean; onClick: () => void; children: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-md border px-4 py-1.5 text-sm ${
+        active ? "border-brand bg-brand text-white" : "border-border text-foreground"
+      }`}
+    >
+      {children}
+    </button>
   )
 }
 

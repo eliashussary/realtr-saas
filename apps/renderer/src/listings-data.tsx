@@ -1,10 +1,14 @@
 import {
+  type ListingBounds,
   type ListingFacets,
   type ListingFilter,
+  type ListingMarker,
   countPublishedListings,
   getPublishedListing,
   parseListingFilter,
+  publishedListingBounds,
   publishedListingFacets,
+  publishedListingMarkers,
   resolvePublishedSite,
   searchPublishedListings,
 } from "@realtr/core"
@@ -12,11 +16,14 @@ import type { SiteDocumentV1 } from "@realtr/site/document"
 import { createServerFn } from "@tanstack/react-start"
 import { toListingView } from "./listing-view"
 import { ListingDetail, type ListingItem, ListingsSearch } from "./listings-render"
+import { listingMapStyleUrl } from "./map-style"
+import { resolveOrigin, serializeJsonLd } from "./seo"
+import { SiteShell } from "./site-shell"
 
 // Public search page size. A filtered page returns this many, with prev/next paging by offset.
 const PAGE_SIZE = 24
-import { resolveOrigin, serializeJsonLd } from "./seo"
-import { SiteShell } from "./site-shell"
+// The map plots every match in the filter (not just the current page), capped for payload sanity.
+const MAP_MARKER_LIMIT = 500
 
 type Json = string | number | boolean | null | Json[] | { [key: string]: Json }
 
@@ -47,6 +54,9 @@ export type ListingsGridData =
       total: number
       offset: number
       pageSize: number
+      markers: ListingMarker[]
+      bounds: ListingBounds | null
+      mapStyleUrl: string
     }
   | { status: "not_found" }
   | { status: "error" }
@@ -91,10 +101,12 @@ const loadListingsGrid = createServerFn({ method: "GET" }).handler(
     const params = url.searchParams
     const filter = parseListingFilter(params)
     const offset = readOffset(params)
-    const [rows, total, facets] = await Promise.all([
+    const [rows, total, facets, markers, bounds] = await Promise.all([
       searchPublishedListings(site.organizationId, filter, { limit: PAGE_SIZE, offset }),
       countPublishedListings(site.organizationId, filter),
       publishedListingFacets(site.organizationId),
+      publishedListingMarkers(site.organizationId, filter, { limit: MAP_MARKER_LIMIT }),
+      publishedListingBounds(site.organizationId, filter),
     ])
     const items: SerializedListing[] = rows.map((row) => ({
       source: row.source,
@@ -111,6 +123,9 @@ const loadListingsGrid = createServerFn({ method: "GET" }).handler(
       total,
       offset,
       pageSize: PAGE_SIZE,
+      markers,
+      bounds,
+      mapStyleUrl: listingMapStyleUrl(),
     }
   },
 )
@@ -221,6 +236,9 @@ export function ListingsGridPage({ data }: { data: ListingsGridData }) {
         total={data.total}
         offset={data.offset}
         pageSize={data.pageSize}
+        markers={data.markers}
+        bounds={data.bounds}
+        mapStyleUrl={data.mapStyleUrl}
       />
     </SiteShell>
   )
