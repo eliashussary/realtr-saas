@@ -18,9 +18,12 @@
 }
 
 /* We render a custom Puck layout via <Puck> children (a tabbed left rail + preview + fields) instead
-   of Puck's default PuckLayout grid, so the Puck root no longer gets its height from that grid. Give
-   the root full height so the custom shell (and the iframe preview inside it) fills the viewport. */
+   of Puck's default PuckLayout grid, so the Puck root no longer gets its height from that grid. The
+   height chain to our shell is: .realtr-editor > .Puck (root) > <div> (Puck's drag-and-drop wrapper,
+   no class) > our `flex h-full` shell. Stretch every link so the shell (and its iframe preview) fills
+   the viewport — without the DnD wrapper rule the shell collapses to content height. */
 .realtr-editor,
-.realtr-editor .Puck {
+.realtr-editor .Puck,
+.realtr-editor .Puck > div {
   height: 100%;
 }
