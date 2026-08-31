@@ -1,7 +1,7 @@
 import type { ThemeTokens } from "@realtr/ui/tokens"
 import { composeConfig } from "../../blocks"
 import type { Pages, TemplateModule } from "../../types"
-import { buildRootConfig } from "../shared"
+import { buildRootConfig, svgThumbnail } from "../shared"
 import { ModernRoot } from "./root"
 
 const defaultTheme: ThemeTokens = {
@@ -56,6 +56,9 @@ export const modern: TemplateModule = {
     id: "modern",
     name: "Modern",
     description: "Clean, sans-serif layout with a split header — a contemporary agent site.",
+    thumbnail: svgThumbnail(
+      "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 160'><rect width='320' height='160' fill='#fafafa'/><rect x='24' y='16' width='90' height='10' rx='5' fill='#c7c9d9'/><circle cx='284' cy='21' r='5' fill='#4f46e5'/><rect x='24' y='56' width='150' height='14' rx='7' fill='#1f2437'/><rect x='24' y='80' width='110' height='8' rx='4' fill='#8a8fa3'/><rect x='24' y='112' width='70' height='22' rx='11' fill='#4f46e5'/></svg>",
+    ),
   },
   schemaVersion: 1,
   Root: ModernRoot,

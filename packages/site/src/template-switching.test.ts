@@ -39,7 +39,10 @@ describe("template switching", () => {
     const componentKeys = (id: string) =>
       Object.keys(templateRegistry[id]?.buildConfig().components ?? {}).sort()
 
-    expect(componentKeys("classic")).toEqual(componentKeys("modern"))
+    const expected = componentKeys("modern")
+    for (const meta of templateList) {
+      expect(componentKeys(meta.id), `template ${meta.id} block set`).toEqual(expected)
+    }
   })
 
   it("keeps a document valid when its template is switched in place", () => {

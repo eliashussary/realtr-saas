@@ -47,6 +47,10 @@ export function composeConfig(opts: ComposeOptions = {}): Config {
 }
 
 export { hero, listingGrid, about, team, contact, richText, gallery, image }
+export { LeadForm, type LeadFormProps } from "./lead-form"
 export { imageField } from "./image-field"
+export type { HeroProps } from "./hero"
+export type { AboutProps } from "./about"
+export type { ContactProps } from "./contact"
 export type { FeaturedListing, ListingGridProps } from "./listing-grid"
 export type { TeamAgent, TeamProps } from "./team"

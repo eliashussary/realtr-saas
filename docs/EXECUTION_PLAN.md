@@ -79,10 +79,10 @@ product capabilities it gates.
 ## Milestone status (2026-08-28)
 
 | Milestone | Status | Notes |
-|---|---|---|
+| --- | --- | --- |
 | M0 Safety + delivery foundation | done | authz guard, validation, test harness, CI, tenant-scoped listing identity, worker lifecycle, UI system |
 | M1 Account + onboarding | done | passwordless auth, onboarding→draft site, RBAC (owner/admin/agent), member profiles, invitations, audit events, and production magic-link email (Resend, M7-A8). Remaining: org switcher (single-org today) |
-| M2 Site builder + publishing | done | pages/nav/SEO, draft/publish + rollback, Puck editor, theme/settings editor, 2 templates, sitemap/robots/JSON-LD |
+| M2 Site builder + publishing | done | pages/nav/SEO, draft/publish + rollback, Puck editor, theme/settings editor, 5 templates (modern, classic, estate, coastal, studio), sitemap/robots/JSON-LD |
 | M3 Listings + DDF | done | client, sync engine, persistence, scheduling, connect UI, public rendering, ops console. Post-MVP **M3-B Technology-Provider** track (deduped feed, per-`DestinationId` entitlement) still open (ADR 0006) |
 | M3.5 Listings mgmt + teams (this session) | done | sidebar dashboard, dark mode, featured listings, exclusive listings + S3 asset upload, RBAC/invitations/agent profiles + Team block |
 | M4 Leads + CRM | done | Capture (contact + listing-inquiry forms, store-before-deliver, honeypot/rate-limit/consent), inbox (role-scoped list + status pipeline + delivery status/retry), distribution (auto-route to listing agent; owner/admin reassign), **new-lead notification email** (worker sweep), and **Follow Up Boss delivery** (connect/test UI, worker delivery with retain-on-failure + retry) shipped and verified. Production email transport (Resend) shipped in M7-A8 (shared by lead notifications + M1 magic links) |

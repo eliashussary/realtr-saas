@@ -1,7 +1,7 @@
 import type { ThemeTokens } from "@realtr/ui/tokens"
 import { composeConfig } from "../../blocks"
 import type { Pages, TemplateModule } from "../../types"
-import { buildRootConfig } from "../shared"
+import { buildRootConfig, svgThumbnail } from "../shared"
 import { ClassicRoot } from "./root"
 
 const defaultTheme: ThemeTokens = {
@@ -60,6 +60,9 @@ export const classic: TemplateModule = {
     id: "classic",
     name: "Classic",
     description: "Serif, centered masthead with an editorial feel — timeless and formal.",
+    thumbnail: svgThumbnail(
+      "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 160'><rect width='320' height='160' fill='#f7f3ec'/><rect x='60' y='22' width='200' height='8' fill='#5a4632'/><rect x='110' y='36' width='100' height='3' fill='#9b7b4f'/><rect x='80' y='64' width='160' height='10' fill='#3d3227'/><rect x='100' y='86' width='120' height='6' fill='#8a7a63'/><rect x='130' y='116' width='60' height='18' fill='none' stroke='#5a4632' stroke-width='2'/></svg>",
+    ),
   },
   schemaVersion: 1,
   Root: ClassicRoot,

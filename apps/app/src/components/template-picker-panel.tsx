@@ -21,6 +21,14 @@ export function TemplatePanel({
             data-current={isCurrent || undefined}
             className="flex flex-col gap-2 rounded-lg border border-border bg-muted/30 p-3 data-[current]:border-primary data-[current]:bg-primary/5"
           >
+            {template.thumbnail && (
+              <img
+                src={template.thumbnail}
+                alt=""
+                aria-hidden="true"
+                className="h-20 w-full rounded-md border border-border object-cover"
+              />
+            )}
             <div className="flex items-center gap-2">
               <span className="font-heading text-sm font-semibold text-foreground">
                 {template.name}

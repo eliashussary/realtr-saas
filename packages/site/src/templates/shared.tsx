@@ -7,6 +7,11 @@ export interface TemplateNavItem {
   href: string
 }
 
+/** Encode a small inline SVG as a data-URI thumbnail for the template picker. */
+export function svgThumbnail(svg: string): string {
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`
+}
+
 export type TemplateRoot = ComponentType<{
   children: ReactNode
   title?: string
