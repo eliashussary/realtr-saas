@@ -1,5 +1,10 @@
 import { db } from "@realtr/db"
-import { type AreaFacet, type AreaPolygon, getAreaPolygons, listAreaFacets } from "@realtr/db/areas"
+import {
+  type AreaPolygon,
+  type CuratedArea,
+  getAreaPolygons,
+  listCuratedAreas,
+} from "@realtr/db/areas"
 import {
   type ActiveListingRow,
   type ListingBounds,
@@ -28,8 +33,9 @@ async function serviceAreaFor(organizationId: string): Promise<ServiceAreaBBox |
     : undefined
 }
 
+export type { AreaPolygon, CuratedArea }
+
 export type { ActiveListingRow, ListingBounds, ListingFacets, ListingMarker }
-export type { AreaFacet, AreaPolygon }
 
 export function listPublishedListings(
   organizationId: string,
@@ -95,10 +101,14 @@ export async function publishedListingMarkers(
   return listingMapMarkers(db, organizationId, filter, { ...options, serviceArea })
 }
 
-/** Neighbourhood areas that contain the tenant's active listings, for the area filter. */
-export async function publishedAreaFacets(organizationId: string): Promise<AreaFacet[]> {
+/**
+ * The neighbourhood areas for the public site's area filter: the tenant's curated set (rank-ordered),
+ * falling back to all areas containing their active listings when nothing is curated. Grouped by
+ * parentRegion → region so duplicate names read as "Lakeview (Oshawa)" vs "Lakeview (Mississauga)".
+ */
+export async function publishedAreaFacets(organizationId: string): Promise<CuratedArea[]> {
   const serviceArea = await serviceAreaFor(organizationId)
-  return listAreaFacets(db, organizationId, { serviceArea })
+  return listCuratedAreas(db, organizationId, { serviceArea })
 }
 
 /** GeoJSON for the given area ids, to outline the selected neighbourhoods on the map. */

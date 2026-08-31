@@ -21,6 +21,7 @@
     "db:migrate": "pnpm --filter @realtr/db db:migrate",
     "db:studio": "pnpm --filter @realtr/db db:studio",
     "db:seed": "pnpm --filter @realtr/db db:seed",
+    "db:seed-areas": "pnpm --filter @realtr/db db:seed-areas",
     "db:push": "pnpm --filter @realtr/db db:push",
     "db:reset": "docker exec realtr-dev-db psql -U realtr -d postgres -c 'DROP DATABASE IF EXISTS realtr WITH (FORCE)' -c 'CREATE DATABASE realtr' && pnpm db:migrate && pnpm db:seed",
     "auth:generate": "pnpm --filter @realtr/app auth:generate",

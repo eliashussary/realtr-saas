@@ -1,6 +1,6 @@
 import {
-  type AreaFacet,
   type AreaPolygon,
+  type CuratedArea,
   type ListingBounds,
   type ListingFacets,
   type ListingFilter,
@@ -105,6 +105,54 @@ function listingsHref(filter: ListingFilter, offset: number): string {
 
 const CONTROL = "rounded-md border border-border bg-background px-2 py-1.5 text-sm text-foreground"
 
+// Grouped neighbourhood select: grouped by parentRegion (region/city) so duplicate names read as
+// "Lakeview (Oshawa)" vs "Lakeview (Mississauga)". Native <select> + <optgroup> — works with no JS.
+// Flat markets (Ottawa, no parentRegion) render as a single "Ottawa" optgroup.
+function AreaSelect({
+  id,
+  areas,
+  selected,
+  onSubmit,
+}: {
+  id: string
+  areas: CuratedArea[]
+  selected: string
+  onSubmit: (event: { currentTarget: { form: HTMLFormElement | null } }) => void
+}) {
+  const startCase = (s: string) =>
+    s
+      .split(/[-_]/)
+      .filter(Boolean)
+      .map((w) => w[0]?.toUpperCase() + w.slice(1))
+      .join(" ")
+  // Group by parentRegion (or a flat label when the market has no grouping).
+  const groups = new Map<string, CuratedArea[]>()
+  for (const a of areas) {
+    const key = a.parentRegion ?? "ottawa"
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key)!.push(a)
+  }
+  // Disambiguate names that repeat within a group by appending the immediate parent (region/city).
+  const labelFor = (a: CuratedArea) => {
+    const dupes = areas.filter((x) => x.name === a.name).length > 1
+    return dupes && a.region ? `${a.name} (${startCase(a.region)})` : a.name
+  }
+  return (
+    <select id={id} name="areaIds" defaultValue={selected} onChange={onSubmit} className={CONTROL}>
+      <option value="">Any area</option>
+      {[...groups.entries()].map(([regionKey, groupAreas]) => (
+        <optgroup key={regionKey} label={regionKey === "ottawa" ? "Ottawa" : startCase(regionKey)}>
+          {groupAreas.map((a) => (
+            <option key={a.id} value={a.id}>
+              {labelFor(a)}
+            </option>
+          ))}
+        </optgroup>
+      ))}
+    </select>
+  )
+}
+
 // A native GET form: submitting sets the querystring the loader parses. Works with no JS (the Apply
 // button); when hydrated, each control auto-submits on change for an instant-filter feel. Beds/baths
 // are "at least"; property type + city are drawn from the tenant's actual inventory (facets).
@@ -112,7 +160,7 @@ function FilterBar({
   filter,
   facets,
   areaFacets,
-}: { filter: ListingFilter; facets: ListingFacets; areaFacets: AreaFacet[] }) {
+}: { filter: ListingFilter; facets: ListingFacets; areaFacets: CuratedArea[] }) {
   const submitOnChange = (event: { currentTarget: { form: HTMLFormElement | null } }) =>
     event.currentTarget.form?.requestSubmit()
   const minMax = [1, 2, 3, 4, 5]
@@ -213,21 +261,14 @@ function FilterBar({
         </label>
       ) : null}
       {areaFacets.length > 0 ? (
-        <label className="flex flex-col gap-1 text-xs text-muted">
+        <label className="flex flex-col gap-1 text-xs text-muted" htmlFor="area-filter">
           Neighbourhood
-          <select
-            name="areaIds"
-            defaultValue={filter.areaIds?.[0] ?? ""}
-            onChange={submitOnChange}
-            className={CONTROL}
-          >
-            <option value="">Any area</option>
-            {areaFacets.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name} ({a.count})
-              </option>
-            ))}
-          </select>
+          <AreaSelect
+            id="area-filter"
+            areas={areaFacets}
+            selected={filter.areaIds?.[0] ?? ""}
+            onSubmit={submitOnChange}
+          />
         </label>
       ) : null}
       <label className="flex flex-col gap-1 text-xs text-muted">
@@ -315,7 +356,7 @@ export interface ListingsSearchProps {
   markers: ListingMarker[]
   bounds: ListingBounds | null
   mapStyleUrl: string
-  areaFacets: AreaFacet[]
+  areaFacets: CuratedArea[]
   areaPolygons: AreaPolygon[]
   // Collection-page mode: a custom heading/description instead of the count H1, the FilterBar hidden,
   // and a "refine in full search" link to the given href.

@@ -1,0 +1,13 @@
+{
+  "market": "toronto",
+  "file": "toronto-neighborhoods.json",
+  "sourceName": "web scrape",
+  "idPattern": "^gta_[a-z0-9-]+(_[a-z0-9-]+){2,}$",
+  "idPrefix": null,
+  "idSource": "id",
+  "hierarchy": {
+    "areaType": "neighbourhood",
+    "parentRegion": { "type": "path", "index": -2 },
+    "region": { "type": "path", "index": -1 }
+  }
+}

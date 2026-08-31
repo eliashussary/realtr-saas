@@ -38,8 +38,8 @@ export { resolvePreview } from "./preview"
 export { resolvePublishedSite, type PublishedSiteResult } from "./published"
 export {
   type ActiveListingRow,
-  type AreaFacet,
   type AreaPolygon,
+  type CuratedArea,
   type ListingBounds,
   type ListingFacets,
   type ListingMarker,

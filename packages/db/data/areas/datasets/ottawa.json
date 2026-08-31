@@ -1,0 +1,13 @@
+{
+  "market": "ottawa",
+  "file": "ottawa-neighborhoods.json",
+  "sourceName": "https://maps.ottawa.ca/geoottawa/",
+  "idPattern": "^ottawa_[a-z0-9]+(?:-[a-z0-9]+)*$",
+  "idPrefix": "ottawa_",
+  "idSource": "name",
+  "hierarchy": {
+    "areaType": null,
+    "parentRegion": null,
+    "region": null
+  }
+}

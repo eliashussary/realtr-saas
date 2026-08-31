@@ -1,6 +1,6 @@
 import {
-  type AreaFacet,
   type AreaPolygon,
+  type CuratedArea,
   type ListingBounds,
   type ListingFacets,
   type ListingFilter,
@@ -61,7 +61,7 @@ export type ListingsGridData =
       markers: ListingMarker[]
       bounds: ListingBounds | null
       mapStyleUrl: string
-      areaFacets: AreaFacet[]
+      areaFacets: CuratedArea[]
       areaPolygons: AreaPolygon[]
     }
   | { status: "not_found" }
@@ -120,6 +120,8 @@ const loadListingsGrid = createServerFn({ method: "GET" }).handler(
     const items: SerializedListing[] = rows.map((row) => ({
       source: row.source,
       sourceListingId: row.sourceListingId,
+      // SAFETY: row.data is a plain normalized-listing record (from the DB); Json is the serializable
+      // server-fn mirror of that same shape, so the cast only narrows the declared type.
       data: row.data as unknown as Json,
     }))
     return {
@@ -164,6 +166,7 @@ const loadListingDetail = createServerFn({ method: "GET" })
       item: {
         source: row.source,
         sourceListingId: row.sourceListingId,
+        // SAFETY: row.data is a plain normalized-listing record from the DB; Json mirrors that shape.
         data: row.data as unknown as Json,
       },
       origin,
@@ -179,6 +182,8 @@ export function loadListingDetailRoute(sourceListingId: string): Promise<Listing
 }
 
 function documentOf(data: ListingsGridData | ListingDetailData): SiteDocumentV1 | null {
+  // SAFETY: a published site's document is stored as a validated SiteDocumentV1; it crosses the
+  // server-fn boundary as Json and is re-cast to its known shape here.
   return data.status === "ok" ? (data.document as unknown as SiteDocumentV1) : null
 }
 
@@ -237,6 +242,8 @@ export function ListingsGridPage({ data }: { data: ListingsGridData }) {
   if (data.status === "error")
     return <Unavailable message="This site is temporarily unavailable." />
   if (data.status !== "ok") return <Unavailable message="This page could not be found." />
+  // SAFETY: a published site's document is a stored, validated SiteDocumentV1; re-cast from the
+  // Json server-fn payload at the render boundary.
   const document = data.document as unknown as SiteDocumentV1
   return (
     <SiteShell document={document}>
@@ -261,6 +268,8 @@ export function ListingDetailPage({ data }: { data: ListingDetailData }) {
   if (data.status === "error")
     return <Unavailable message="This site is temporarily unavailable." />
   if (data.status !== "ok") return <Unavailable message="This listing could not be found." />
+  // SAFETY: a published site's document is a stored, validated SiteDocumentV1; re-cast from the
+  // Json server-fn payload at the render boundary.
   const document = data.document as unknown as SiteDocumentV1
   const item = toItem(data.item)
   const view = toListingView(item.data)

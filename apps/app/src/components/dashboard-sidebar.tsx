@@ -34,6 +34,7 @@ interface NavItem {
 const NAV: NavItem[] = [
   { to: "/", label: "Overview", icon: LayoutDashboard },
   { to: "/listings", label: "Listings", icon: Building2 },
+  { to: "/areas", label: "Areas", icon: MapPinned },
   { to: "/collections", label: "Collections", icon: LayoutGrid },
   { to: "/service-area", label: "Service area", icon: MapPinned },
   { to: "/leads", label: "Leads", icon: Inbox },

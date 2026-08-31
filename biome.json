@@ -8,7 +8,8 @@
       "**/.nitro/**",
       "**/.tanstack/**",
       "**/routeTree.gen.ts",
-      "**/drizzle/**"
+      "**/drizzle/**",
+      "**/data/areas/*.json"
     ]
   },
   "formatter": {

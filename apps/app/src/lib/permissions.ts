@@ -29,6 +29,8 @@ export const statement = {
   collection: ["manage"],
   // Serviced market (bounding box): owner/admin only. Bounds the feed pull + public site.
   serviceArea: ["manage"],
+  // Neighbourhood areas: view = see the curation list; manage = curate which areas the site offers.
+  area: ["view", "manage"],
 } as const
 
 export const ac = createAccessControl(statement)
@@ -43,6 +45,7 @@ const REALTR_ALL = {
   post: ["manage"],
   collection: ["manage"],
   serviceArea: ["manage"],
+  area: ["view", "manage"],
 } as const
 
 export const roles = {

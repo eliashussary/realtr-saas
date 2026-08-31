@@ -27,6 +27,7 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx src/seed.ts",
+    "db:seed-areas": "tsx src/seed-areas.ts",
     "check": "tsc --noEmit",
     "test:unit": "vitest run --config vitest.unit.config.ts",
     "test:integration": "bash test/run-integration.sh"
